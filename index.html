@@ -15,11 +15,13 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Prompt', sans-serif; }
+        body { font-family: 'Prompt', sans-serif; background-color: #020617; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #020617; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
         .font-thai { font-family: 'Prompt', sans-serif; }
+        /* ป้องกัน Layout ขยับขณะโหลดไอคอน */
+        i[data-lucide] { display: inline-block; vertical-align: middle; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 selection:bg-yellow-500/30">
@@ -35,7 +37,7 @@
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby9s_a_bhsLFEvln1Y_qAMvZ_J7jmlfuOMiwjkx9mjb1lEqDKQ_WMlB3_Q78UAc3asD/exec";
         const CACHE_KEY_VERSION = 'guild_v12_stable_sync_final';
 
-        // Helper for Lucide Icons in React
+        // Helper Component สำหรับ Lucide Icons
         const Icon = ({ name, className = "w-5 h-5" }) => {
             useEffect(() => {
                 if (window.lucide) {
@@ -54,7 +56,7 @@
                 const timeout = setTimeout(() => {
                     window[callbackName] = () => {};
                     if (script.parentNode) document.body.removeChild(script);
-                    reject(new Error("Request Timeout: กรุณาตรวจสอบการตั้งค่า Deploy ใน Apps Script (ต้องเลือก Anyone)"));
+                    reject(new Error("Request Timeout: กรุณาตรวจสอบการตั้งค่า Deploy ใน Apps Script"));
                 }, 25000);
 
                 window[callbackName] = (data) => {
@@ -73,7 +75,7 @@
                 script.onerror = () => {
                     clearTimeout(timeout);
                     if (script.parentNode) document.body.removeChild(script);
-                    reject(new Error("CORS/Network Error: ไม่สามารถติดต่อ Script ได้"));
+                    reject(new Error("Network Error: ไม่สามารถติดต่อ Script ได้"));
                 };
                 document.body.appendChild(script);
             });
@@ -247,13 +249,13 @@
             if (isLoading && !statusMsg.type.includes('error')) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-yellow-500 font-thai">
                     <div className="animate-spin w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full mb-6"></div>
-                    <p className="font-black text-xl tracking-[0.2em] animate-pulse">กำลังซิงค์ข้อมูล Cloud...</p>
+                    <p className="font-black text-xl tracking-[0.2em] animate-pulse">กำลังซิงค์ข้อมูล CLOUD...</p>
                 </div>
             );
 
             return (
                 <div className="pb-32 font-thai">
-                    <header className="bg-slate-900/90 backdrop-blur-2xl border-b border-slate-800 sticky top-0 z-40 shadow-2xl p-6">
+                    <header className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-40 shadow-2xl p-6">
                         <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
                             <div className="flex items-center gap-5">
                                 <div className="bg-gradient-to-br from-yellow-400 to-amber-600 p-3 rounded-[1.25rem] shadow-[0_0_25px_rgba(234,179,8,0.4)]">
@@ -267,12 +269,12 @@
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 bg-slate-800/80 p-2 rounded-2xl border border-slate-700 shadow-inner">
-                                <button onClick={() => setCurrentWeekId(getGuildWeekId(new Date(new Date(currentWeekId).getTime() - 7*24*60*60*1000)))} className="p-2.5 hover:bg-slate-700 rounded-xl transition-all"><Icon name="chevron-left" /></button>
+                                <button onClick={() => setCurrentWeekId(getGuildWeekId(new Date(new Date(currentWeekId).getTime() - 7*24*60*60*1000)))} className="p-2.5 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"><Icon name="chevron-left" /></button>
                                 <div className="px-5 text-center min-w-[130px]">
                                     <p className="text-[9px] uppercase text-slate-500 font-black mb-1 tracking-widest">รอบสัปดาห์</p>
                                     <p className="text-sm font-mono font-black text-blue-400">{new Date(currentWeekId).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })}</p>
                                 </div>
-                                <button onClick={() => setCurrentWeekId(getGuildWeekId(new Date(new Date(currentWeekId).getTime() + 7*24*60*60*1000)))} className="p-2.5 hover:bg-slate-700 rounded-xl transition-all"><Icon name="chevron-right" /></button>
+                                <button onClick={() => setCurrentWeekId(getGuildWeekId(new Date(new Date(currentWeekId).getTime() + 7*24*60*60*1000)))} className="p-2.5 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"><Icon name="chevron-right" /></button>
                             </div>
                         </div>
                     </header>
