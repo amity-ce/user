@@ -1,401 +1,401 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Users, Plus, Trash2, ChevronLeft, ChevronRight, Trophy, 
-  Coins, CheckCircle2, Circle, Timer, Clock, RefreshCw, 
-  BarChart3, Lock, AlertTriangle, UserPlus, ShieldCheck, Cloud, Wifi,
-  UserX, FileText, Ban, ExternalLink, AlertCircle
-} from 'lucide-react';
-
-// --- CONFIGURATION ---
-const GOAL_AMOUNT = 150; 
-const RESET_DAY = 0; // Sunday
-const RESET_HOUR = 23; // 23:00
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby9s_a_bhsLFEvln1Y_qAMvZ_J7jmlfuOMiwjkx9mjb1lEqDKQ_WMlB3_Q78UAc3asD/exec";
-const CACHE_KEY_VERSION = 'guild_v12_stable_sync_final'; // เปลี่ยน Key เพื่อล้าง Cache เก่าที่มีปัญหา
-
-// --- HELPERS ---
-const jsonpRequest = (params) => {
-  return new Promise((resolve, reject) => {
-    const callbackName = 'jsonp_callback_' + Math.round(1000000 * Math.random());
-    const script = document.createElement('script');
-    
-    const timeout = setTimeout(() => {
-      window[callbackName] = () => {};
-      if (script.parentNode) document.body.removeChild(script);
-      reject(new Error("Request Timeout: กรุณาตรวจสอบการตั้งค่า Deploy ใน Apps Script (ต้องเลือก Anyone)"));
-    }, 25000);
-
-    window[callbackName] = (data) => {
-      clearTimeout(timeout);
-      delete window[callbackName];
-      if (script.parentNode) document.body.removeChild(script);
-      if (data.status === 'success') resolve(data.data);
-      else reject(new Error(data.message || "Server Error"));
-    };
-
-    const queryString = Object.keys(params)
-      .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
-      .join('&');
-    
-    script.src = `${SCRIPT_URL}?callback=${callbackName}&${queryString}`;
-    script.onerror = () => {
-      clearTimeout(timeout);
-      if (script.parentNode) document.body.removeChild(script);
-      reject(new Error("CORS/Network Error: ไม่สามารถติดต่อ Script ได้"));
-    };
-    document.body.appendChild(script);
-  });
-};
-
-const getGuildWeekId = (date = new Date()) => {
-  const d = new Date(date);
-  const shifted = new Date(d.getTime());
-  shifted.setHours(shifted.getHours() - RESET_HOUR);
-  const day = shifted.getDay(); 
-  const diff = shifted.getDate() - day;
-  const weekStart = new Date(shifted.setDate(diff));
-  weekStart.setHours(RESET_HOUR, 0, 0, 0);
-  return weekStart.toISOString().split('T')[0];
-};
-
-const App = () => {
-  // ดึงข้อมูลจาก LocalStorage เป็นค่าเริ่มต้นเสมอ
-  const [members, setMembers] = useState(() => JSON.parse(localStorage.getItem(`${CACHE_KEY_VERSION}_mem`) || '[]'));
-  const [donations, setDonations] = useState(() => JSON.parse(localStorage.getItem(`${CACHE_KEY_VERSION}_don`) || '[]'));
-  const [blacklist, setBlacklist] = useState([]); 
-  
-  const [currentWeekId, setCurrentWeekId] = useState(getGuildWeekId());
-  const [newMemberName, setNewMemberName] = useState('');
-  const [blackName, setBlackName] = useState('');
-  const [blackReason, setBlackReason] = useState('');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isLoading, setIsLoading] = useState(members.length === 0);
-  const [countdown, setCountdown] = useState('');
-  const [statusMsg, setStatusMsg] = useState({ type: 'info', text: 'กำลังเตรียมข้อมูล...' });
-
-  // 1. ระบบซิงค์ข้อมูลอัจฉริยะ (Smart Sync)
-  const syncData = useCallback(async () => {
-    setIsSyncing(true);
-    try {
-      const [mRes, dRes, bRes] = await Promise.all([
-        jsonpRequest({ action: 'getMembers' }),
-        jsonpRequest({ action: 'getDonations' }),
-        jsonpRequest({ action: 'getBlacklist' })
-      ]);
-
-      if (mRes) {
-        setMembers(mRes);
-        localStorage.setItem(`${CACHE_KEY_VERSION}_mem`, JSON.stringify(mRes));
-      }
-
-      if (dRes) {
-        setDonations(prev => {
-          const serverData = Array.isArray(dRes) ? dRes : [];
-          // รวมข้อมูลจาก Server และ Local โดยเน้นที่สถานะ 'paid'
-          const merged = [...serverData];
-          
-          prev.forEach(local => {
-            if (local.status === 'paid') {
-              const sIdx = merged.findIndex(s => s.id === local.id);
-              if (sIdx === -1) {
-                // ถ้าใน server ยังไม่มีข้อมูลการติ๊กนี้ ให้เก็บข้อมูลจาก local ไว้ก่อน
-                merged.push(local);
-              } else if (merged[sIdx].status !== 'paid') {
-                // ถ้า server มีข้อมูลแต่ยังไม่เป็น paid ให้ยึด local paid ไว้ก่อน (เพื่อรอ server update)
-                merged[sIdx] = local;
-              }
-            }
-          });
-
-          localStorage.setItem(`${CACHE_KEY_VERSION}_don`, JSON.stringify(merged));
-          return merged;
-        });
-      }
-
-      if (bRes) setBlacklist(bRes);
-      setStatusMsg({ type: 'success', text: `ข้อมูลล่าสุด: ${new Date().toLocaleTimeString('th-TH')}` });
-    } catch (err) {
-      console.error(err);
-      setStatusMsg({ type: 'error', text: err.message });
-    } finally {
-      setIsSyncing(false);
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    syncData();
-    const interval = setInterval(syncData, 60000); 
-    return () => clearInterval(interval);
-  }, [syncData]);
-
-  // 2. ระบบนับเวลาถอยหลัง (Reset Countdown)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const next = new Date();
-      next.setDate(now.getDate() + (RESET_DAY + 7 - now.getDay()) % 7);
-      next.setHours(RESET_HOUR, 0, 0, 0);
-      if (now > next) next.setDate(next.getDate() + 7);
-      const diff = next - now;
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24)), h = Math.floor((diff / (1000 * 60 * 60)) % 24), m = Math.floor((diff / (1000 * 60)) % 60), s = Math.floor((diff / 1000) % 60);
-      setCountdown(`${d}d ${h}h ${m}m ${s}s`);
-      const calcWeek = getGuildWeekId();
-      if (calcWeek !== currentWeekId) setCurrentWeekId(calcWeek);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [currentWeekId]);
-
-  // 3. การคำนวณข้อมูลสำหรับการแสดงผล
-  const sortedMembers = useMemo(() => [...members].sort((a, b) => a.name.localeCompare(b.name, 'th')), [members]);
-  
-  const weeklyMap = useMemo(() => {
-    const map = {};
-    donations.forEach(d => { if (d.weekId === currentWeekId) map[d.memberId] = d; });
-    return map;
-  }, [donations, currentWeekId]);
-
-  const statsSummary = useMemo(() => {
-    const weeks = [...new Set(donations.map(d => d.weekId))].sort();
-    return sortedMembers.map(m => {
-      const mDons = donations.filter(d => d.memberId === m.id);
-      const gold = mDons.reduce((acc, curr) => acc + (parseInt(curr.amount) || 0), 0);
-      const joinW = m.createdAt ? getGuildWeekId(new Date(m.createdAt)) : (weeks[0] || currentWeekId);
-      const relevant = weeks.filter(w => w >= joinW);
-      let missed = 0, active = 0;
-      relevant.forEach(w => {
-        const r = mDons.find(d => d.weekId === w);
-        if ((parseInt(r?.amount) || 0) >= GOAL_AMOUNT) active++; else missed++;
-      });
-      return { ...m, gold, missed, active };
-    });
-  }, [sortedMembers, donations, currentWeekId]);
-
-  // 4. การจัดการเหตุการณ์ (Donation, Add, Delete)
-  const handleDonate = async (mId) => {
-    if (isSyncing) return;
-    const donId = `${mId}_${currentWeekId}`;
-    const nowIso = new Date().toISOString();
-    
-    // บันทึกลง Local ทันทีเพื่อให้ติ๊กสีเขียวขึ้นค้างไว้
-    const newRec = { id: donId, memberId: mId, weekId: currentWeekId, amount: GOAL_AMOUNT, status: 'paid', updatedAt: nowIso };
-    setDonations(prev => {
-      const next = [...prev.filter(d => d.id !== donId), newRec];
-      localStorage.setItem(`${CACHE_KEY_VERSION}_don`, JSON.stringify(next));
-      return next;
-    });
-
-    try {
-      await jsonpRequest({ action: 'updateDonation', memberId: mId, weekId: currentWeekId, amount: GOAL_AMOUNT });
-      setStatusMsg({ type: 'success', text: 'บันทึกบริจาคเรียบร้อย' });
-    } catch (err) {
-      setStatusMsg({ type: 'error', text: 'บันทึกลงคลาวด์ไม่สำเร็จ (ข้อมูลจะซิงค์ภายหลัง)' });
-    }
-  };
-
-  const addMember = async (e) => {
-    e.preventDefault();
-    if (!newMemberName.trim() || isSyncing) return;
-    setIsSyncing(true);
-    setStatusMsg({ type: 'info', text: 'กำลังบันทึกรายชื่อสมาชิก...' });
-    try {
-      await jsonpRequest({ action: 'addMember', name: newMemberName.trim() });
-      setNewMemberName('');
-      await syncData();
-    } catch (err) { setStatusMsg({ type: 'error', text: err.message }); setIsSyncing(false); }
-  };
-
-  const delMember = async (id) => {
-    if (!window.confirm("ยืนยันการลบสมาชิกออกจากกิลด์?")) return;
-    setIsSyncing(true);
-    try {
-      await jsonpRequest({ action: 'deleteMember', id });
-      await syncData();
-    } catch (err) { setStatusMsg({ type: 'error', text: err.message }); setIsSyncing(false); }
-  };
-
-  const addBlacklistMember = async (e) => {
-    e.preventDefault();
-    if (!blackName.trim() || !blackReason.trim() || isSyncing) return;
-    setIsSyncing(true);
-    try {
-      await jsonpRequest({ action: 'addBlacklist', name: blackName.trim(), reason: blackReason.trim() });
-      setBlackName(''); setBlackReason('');
-      await syncData();
-    } catch (err) { setStatusMsg({ type: 'error', text: err.message }); setIsSyncing(false); }
-  };
-
-  const delBlacklistMember = async (id) => {
-    if (!window.confirm("ยืนยันการลบชื่อออกจากแบล็คลิส?")) return;
-    setIsSyncing(true);
-    try {
-      await jsonpRequest({ action: 'deleteBlacklist', id });
-      await syncData();
-    } catch (err) { setStatusMsg({ type: 'error', text: err.message }); setIsSyncing(false); }
-  };
-
-  if (isLoading && !statusMsg.type.includes('error')) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-yellow-500 font-thai">
-      <RefreshCw className="animate-spin w-16 h-16 mb-6" />
-      <p className="font-black text-xl tracking-[0.2em] animate-pulse">กำลังดึงข้อมูล Cloud...</p>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-yellow-500/30 pb-32">
-      <header className="bg-slate-900/90 backdrop-blur-2xl border-b border-slate-800 sticky top-0 z-40 shadow-2xl p-6">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 font-thai">
-          <div className="flex items-center gap-5">
-            <div className="bg-gradient-to-br from-yellow-400 to-amber-600 p-3 rounded-[1.25rem] shadow-[0_0_25px_rgba(234,179,8,0.4)]">
-              <Trophy className="w-8 h-8 text-slate-950" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black italic tracking-wider bg-gradient-to-r from-yellow-100 to-amber-500 bg-clip-text text-transparent uppercase">Guild Tracker Pro</h1>
-              <div className="flex items-center gap-2 text-rose-500 text-[10px] font-black mt-1 uppercase">
-                <Timer className="w-3 h-3" /> Reset: <span className="font-mono">{countdown}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 bg-slate-800/80 p-2 rounded-2xl border border-slate-700 shadow-inner">
-            <button onClick={() => setCurrentWeekId(getGuildWeekId(new Date(new Date(currentWeekId).getTime() - 7*24*60*60*1000)))} className="p-2.5 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"><ChevronLeft className="w-5 h-5" /></button>
-            <div className="px-5 text-center min-w-[130px]">
-              <p className="text-[9px] uppercase text-slate-500 font-black mb-1">รอบสัปดาห์</p>
-              <p className="text-sm font-mono font-black text-blue-400">{new Date(currentWeekId).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })}</p>
-            </div>
-            <button onClick={() => setCurrentWeekId(getGuildWeekId(new Date(new Date(currentWeekId).getTime() + 7*24*60*60*1000)))} className="p-2.5 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"><ChevronRight className="w-5 h-5" /></button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto p-4 space-y-10 mt-6 font-thai">
-        {/* Status Area */}
-        <div className={`p-4 rounded-2xl flex items-center justify-between bg-slate-900 border ${statusMsg.type === 'error' ? 'border-rose-500/50 bg-rose-500/5' : 'border-slate-800 shadow-xl'}`}>
-          <div className="flex items-center gap-3">
-            {statusMsg.type === 'error' ? <AlertCircle className="w-4 h-4 text-rose-500" /> : <Wifi className={`w-4 h-4 ${isSyncing ? 'animate-pulse text-yellow-500' : 'text-emerald-500'}`} />}
-            <span className={`text-xs font-bold italic ${statusMsg.type === 'error' ? 'text-rose-400' : 'text-slate-300'}`}>{statusMsg.text}</span>
-          </div>
-          <button onClick={syncData} disabled={isSyncing} className="p-2 hover:bg-slate-800 rounded-xl transition-all cursor-pointer">
-            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-
-        {/* Dashboard Tiles */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] shadow-xl group hover:border-yellow-500/30 transition-all">
-            <div className="flex justify-between items-start mb-2 text-slate-500 uppercase font-black text-[10px] tracking-widest"><p>ทองกิลด์สัปดาห์นี้</p><Coins className="w-4 h-4 text-yellow-500 opacity-40" /></div>
-            <div className="flex items-baseline gap-2 text-yellow-500 font-mono"><span className="text-4xl font-black">{(sortedMembers.reduce((a, m) => a + (parseInt(weeklyMap[m.id]?.amount) || 0), 0)).toLocaleString()}</span><span className="text-xs font-bold uppercase tracking-tighter">Gold</span></div>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] shadow-xl group hover:border-emerald-500/30 transition-all">
-            <div className="flex justify-between items-start mb-2 text-slate-500 uppercase font-black text-[10px] tracking-widest"><p>บริจาคสำเร็จ</p><CheckCircle2 className="w-4 h-4 text-emerald-500 opacity-40" /></div>
-            <div className="flex items-baseline gap-2 text-emerald-500 font-mono"><span className="text-4xl font-black">{sortedMembers.filter(m => (parseInt(weeklyMap[m.id]?.amount) || 0) >= GOAL_AMOUNT).length}</span><span className="text-xs font-bold tracking-tighter uppercase">/ {members.length}</span></div>
-          </div>
-        </div>
-
-        {/* Member Board Table */}
-        <section className="bg-slate-900 rounded-[3rem] border border-slate-800 overflow-hidden shadow-2xl relative">
-          <div className="p-8 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/50">
-             <div className="flex items-center gap-4"><Users className="w-6 h-6 text-blue-500" /><h2 className="font-black text-base uppercase italic tracking-[0.2em] text-slate-200">Guild Members</h2></div>
-             <div className="text-[10px] bg-emerald-600 text-white px-5 py-2 rounded-full font-black tracking-widest uppercase italic shadow-lg shadow-emerald-500/20">Target: 150G</div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr className="text-left text-[10px] text-slate-600 uppercase font-black bg-slate-800/20 tracking-widest"><th className="px-10 py-5">ชื่อตัวละคร</th><th className="px-6 py-5 text-center">สถานะการบริจาค</th><th className="px-10 py-5 text-right">จำนวนทอง</th></tr></thead>
-              <tbody className="divide-y divide-slate-800/40">
-                {sortedMembers.map(m => {
-                  const don = weeklyMap[m.id];
-                  const isPaid = (parseInt(don?.amount) || 0) >= GOAL_AMOUNT;
-                  return (
-                    <tr key={m.id} className="group hover:bg-slate-800/40 transition-all duration-300">
-                      <td className={`px-10 py-8 font-bold text-lg italic tracking-tight transition-colors ${isPaid ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200'}`}>{m.name}</td>
-                      <td className="px-6 py-8">
-                        <div className="flex justify-center">
-                          {isPaid ? (
-                            <div className="flex items-center gap-3 px-8 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-black shadow-[0_0_25px_rgba(16,185,129,0.15)] uppercase tracking-widest cursor-default italic"><ShieldCheck className="w-4 h-4" /> สำเร็จ <Lock className="w-3 h-3 opacity-30 ml-1" /></div>
-                          ) : (
-                            <button onClick={() => handleDonate(m.id)} disabled={isSyncing} className="flex items-center gap-3 px-8 py-3 rounded-2xl bg-slate-800 border border-slate-700 text-slate-500 text-xs font-black hover:border-yellow-500/50 hover:text-yellow-500 active:scale-95 transition-all uppercase tracking-[0.2em] shadow-lg italic cursor-pointer"><Circle className="w-4 h-4" /> ยังไม่บริจาค</button>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-10 py-8 text-right font-mono font-black">
-                        <div className="flex items-center justify-end gap-6">
-                           <span className={`transition-all duration-500 ${isPaid ? 'text-emerald-400 text-2xl drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'text-slate-800'}`}>{don?.amount || 0}</span>
-                           {!isPaid && <button onClick={() => delMember(m.id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-700 hover:text-rose-500 transition-all hover:bg-rose-500/10 rounded-2xl cursor-pointer"><Trash2 className="w-5 h-5" /></button>}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Lifetime History Section */}
-        <section className="bg-slate-900 rounded-[3rem] border border-slate-800 overflow-hidden shadow-2xl relative">
-          <div className="p-8 border-b border-slate-800/50 flex items-center gap-4 bg-blue-500/5 backdrop-blur-sm"><BarChart3 className="w-6 h-6 text-blue-500" /><h2 className="font-black text-base uppercase italic tracking-[0.2em] text-slate-300">Lifetime History</h2></div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr className="text-left text-[10px] text-slate-600 uppercase font-black bg-slate-800/20 tracking-widest"><th className="px-10 py-5">รายชื่อสมาชิก</th><th className="px-6 py-5 text-center">สถิติ (สัปดาห์)</th><th className="px-10 py-5 text-right">ทองสะสมถาวร</th></tr></thead>
-              <tbody className="divide-y divide-slate-800/40 font-mono font-thai">
-                {statsSummary.map(s => (
-                  <tr key={s.id} className="hover:bg-slate-800/40 transition-all duration-300">
-                    <td className="px-10 py-7 font-bold text-slate-500 text-base font-sans">{s.name}</td>
-                    <td className="px-6 py-7 text-center text-sm tracking-tighter">
-                      <div className="flex items-center justify-center gap-5">
-                        <div className="flex flex-col items-center"><span className="text-[8px] uppercase font-black text-slate-600 mb-1 tracking-widest">บริจาคครบ</span><span className="text-emerald-500 font-black text-xl drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">{s.active}</span></div>
-                        <div className="w-[1px] h-6 bg-slate-800 self-end mb-1" />
-                        <div className="flex flex-col items-center"><span className="text-[8px] uppercase font-black text-slate-600 mb-1 tracking-widest">ขาด</span><span className={`font-black text-xl ${s.missed > 0 ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'text-slate-800'}`}>{s.missed}</span></div>
-                      </div>
-                    </td>
-                    <td className="px-10 py-7 text-right">
-                       <div className="flex flex-col items-end"><span className="font-black text-yellow-500 text-2xl tracking-tighter drop-shadow-[0_0_10px_rgba(234,179,8,0.3)]">{(s.gold || 0).toLocaleString()}G</span>{s.missed >= 3 && <span className="text-[9px] text-rose-500 font-black uppercase tracking-[0.2em] animate-pulse flex items-center gap-1.5 mt-2 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20 font-sans italic"><AlertTriangle className="w-3 h-3" /> Risk: Inactive</span>}</div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Blacklist Section */}
-        <section className="bg-slate-900 rounded-[3rem] border border-rose-500/30 overflow-hidden shadow-2xl relative">
-          <div className="p-8 border-b border-rose-500/20 flex items-center gap-4 bg-rose-500/5 backdrop-blur-sm"><Ban className="w-6 h-6 text-rose-500" /><h2 className="font-black text-base uppercase italic tracking-[0.2em] text-rose-300">Guild Blacklist</h2></div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr className="text-left text-[10px] text-rose-900/50 uppercase font-black bg-rose-950/20 tracking-widest"><th className="px-10 py-5">รายชื่อตัวละคร</th><th className="px-6 py-5">เหตุผล / หมายเหตุ</th><th className="px-10 py-5 text-right">จัดการ</th></tr></thead>
-              <tbody className="divide-y divide-rose-900/10 font-thai">
-                {blacklist.length > 0 ? blacklist.map(b => (
-                  <tr key={b.id} className="group hover:bg-rose-950/10 transition-all duration-300"><td className="px-10 py-6 font-black text-rose-400 text-lg italic">{b.name}</td><td className="px-6 py-6 text-slate-400 text-sm leading-relaxed">{b.reason}</td><td className="px-10 py-6 text-right"><button onClick={() => delBlacklistMember(b.id)} className="p-2 text-rose-900/30 hover:text-rose-500 transition-all hover:bg-rose-500/10 rounded-xl cursor-pointer"><Trash2 className="w-5 h-5" /></button></td></tr>
-                )) : (
-                  <tr><td colSpan="3" className="px-10 py-10 text-center text-slate-700 font-black uppercase tracking-widest text-[10px]">ยังไม่มีรายชื่อแบล็คลิส</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Management Forms */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-           <section className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-xl relative overflow-hidden group">
-              <div className="flex items-center gap-4 mb-6"><UserPlus className="w-5 h-5 text-yellow-500" /><h3 className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em]">เพิ่มรายชื่อสมาชิก</h3></div>
-              <form onSubmit={addMember} className="space-y-4 relative z-10 font-thai"><input type="text" value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} placeholder="ชื่อตัวละครใหม่..." className="w-full bg-slate-800/40 border border-slate-700 rounded-2xl px-6 py-4 focus:border-yellow-500 outline-none text-white font-bold transition-all shadow-inner" /><button type="submit" disabled={!newMemberName.trim() || isSyncing} className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-950 py-4 rounded-2xl font-black transition-all active:scale-95 uppercase text-xs tracking-widest cursor-pointer shadow-lg">{isSyncing ? 'Processing...' : 'บันทึกเข้ากิลด์'}</button></form>
-           </section>
-           <section className="bg-slate-900 p-8 rounded-[2.5rem] border border-rose-500/20 shadow-xl relative overflow-hidden group">
-              <div className="flex items-center gap-4 mb-6"><UserX className="w-5 h-5 text-rose-500" /><h3 className="text-[10px] font-black uppercase text-rose-500/50 tracking-[0.3em]">เพิ่มแบล็คลิส</h3></div>
-              <form onSubmit={addBlacklistMember} className="space-y-4 relative z-10 font-thai"><input type="text" value={blackName} onChange={(e) => setBlackName(e.target.value)} placeholder="ชื่อที่ต้องการแบน..." className="w-full bg-slate-800/40 border border-slate-700 rounded-2xl px-6 py-4 focus:border-rose-500 outline-none text-white font-bold transition-all shadow-inner" /><input type="text" value={blackReason} onChange={(e) => setBlackReason(e.target.value)} placeholder="เหตุผลที่แบน..." className="w-full bg-slate-800/40 border border-slate-700 rounded-2xl px-6 py-4 focus:border-rose-500 outline-none text-white font-bold transition-all shadow-inner" /><button type="submit" disabled={!blackName.trim() || !blackReason.trim() || isSyncing} className="w-full bg-rose-600 hover:bg-rose-500 text-white py-4 rounded-2xl font-black transition-all active:scale-95 uppercase text-xs tracking-widest cursor-pointer shadow-lg">{isSyncing ? 'Processing...' : 'บันทึกแบล็คลิส'}</button></form>
-           </section>
-        </div>
-      </main>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;700;900&display=swap');
-        .font-sans, .font-thai { font-family: 'Prompt', sans-serif; }
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guild Tracker Pro - Cloud Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel CDN for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #020617; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-      `}</style>
-    </div>
-  );
-};
+        .font-thai { font-family: 'Prompt', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 selection:bg-yellow-500/30">
+    <div id="root"></div>
 
-export default App;
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback } = React;
+
+        // --- CONFIGURATION ---
+        const GOAL_AMOUNT = 150; 
+        const RESET_DAY = 0; 
+        const RESET_HOUR = 23; 
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby9s_a_bhsLFEvln1Y_qAMvZ_J7jmlfuOMiwjkx9mjb1lEqDKQ_WMlB3_Q78UAc3asD/exec";
+        const CACHE_KEY_VERSION = 'guild_v12_stable_sync_final';
+
+        // Helper for Lucide Icons in React
+        const Icon = ({ name, className = "w-5 h-5" }) => {
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [name]);
+            return <i data-lucide={name} className={className}></i>;
+        };
+
+        // --- HELPERS ---
+        const jsonpRequest = (params) => {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Math.round(1000000 * Math.random());
+                const script = document.createElement('script');
+                
+                const timeout = setTimeout(() => {
+                    window[callbackName] = () => {};
+                    if (script.parentNode) document.body.removeChild(script);
+                    reject(new Error("Request Timeout: กรุณาตรวจสอบการตั้งค่า Deploy ใน Apps Script (ต้องเลือก Anyone)"));
+                }, 25000);
+
+                window[callbackName] = (data) => {
+                    clearTimeout(timeout);
+                    delete window[callbackName];
+                    if (script.parentNode) document.body.removeChild(script);
+                    if (data.status === 'success') resolve(data.data);
+                    else reject(new Error(data.message || "Server Error"));
+                };
+
+                const queryString = Object.keys(params)
+                    .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
+                    .join('&');
+                
+                script.src = `${SCRIPT_URL}?callback=${callbackName}&${queryString}`;
+                script.onerror = () => {
+                    clearTimeout(timeout);
+                    if (script.parentNode) document.body.removeChild(script);
+                    reject(new Error("CORS/Network Error: ไม่สามารถติดต่อ Script ได้"));
+                };
+                document.body.appendChild(script);
+            });
+        };
+
+        const getGuildWeekId = (date = new Date()) => {
+            const d = new Date(date);
+            const shifted = new Date(d.getTime());
+            shifted.setHours(shifted.getHours() - RESET_HOUR);
+            const day = shifted.getDay(); 
+            const diff = shifted.getDate() - day;
+            const weekStart = new Date(shifted.setDate(diff));
+            weekStart.setHours(RESET_HOUR, 0, 0, 0);
+            return weekStart.toISOString().split('T')[0];
+        };
+
+        const App = () => {
+            const [members, setMembers] = useState(() => JSON.parse(localStorage.getItem(`${CACHE_KEY_VERSION}_mem`) || '[]'));
+            const [donations, setDonations] = useState(() => JSON.parse(localStorage.getItem(`${CACHE_KEY_VERSION}_don`) || '[]'));
+            const [blacklist, setBlacklist] = useState([]); 
+            const [currentWeekId, setCurrentWeekId] = useState(getGuildWeekId());
+            const [newMemberName, setNewMemberName] = useState('');
+            const [blackName, setBlackName] = useState('');
+            const [blackReason, setBlackReason] = useState('');
+            const [isSyncing, setIsSyncing] = useState(false);
+            const [isLoading, setIsLoading] = useState(members.length === 0);
+            const [countdown, setCountdown] = useState('');
+            const [statusMsg, setStatusMsg] = useState({ type: 'info', text: 'กำลังเตรียมข้อมูล...' });
+
+            const syncData = useCallback(async () => {
+                setIsSyncing(true);
+                try {
+                    const [mRes, dRes, bRes] = await Promise.all([
+                        jsonpRequest({ action: 'getMembers' }),
+                        jsonpRequest({ action: 'getDonations' }),
+                        jsonpRequest({ action: 'getBlacklist' })
+                    ]);
+
+                    if (mRes) {
+                        setMembers(mRes);
+                        localStorage.setItem(`${CACHE_KEY_VERSION}_mem`, JSON.stringify(mRes));
+                    }
+
+                    if (dRes) {
+                        setDonations(prev => {
+                            const serverData = Array.isArray(dRes) ? dRes : [];
+                            const merged = [...serverData];
+                            prev.forEach(local => {
+                                if (local.status === 'paid') {
+                                    const sIdx = merged.findIndex(s => s.id === local.id);
+                                    if (sIdx === -1) merged.push(local);
+                                    else if (merged[sIdx].status !== 'paid') merged[sIdx] = local;
+                                }
+                            });
+                            localStorage.setItem(`${CACHE_KEY_VERSION}_don`, JSON.stringify(merged));
+                            return merged;
+                        });
+                    }
+                    if (bRes) setBlacklist(bRes);
+                    setStatusMsg({ type: 'success', text: `อัปเดต: ${new Date().toLocaleTimeString('th-TH')}` });
+                } catch (err) {
+                    setStatusMsg({ type: 'error', text: err.message });
+                } finally {
+                    setIsSyncing(false);
+                    setIsLoading(false);
+                }
+            }, []);
+
+            useEffect(() => {
+                syncData();
+                const interval = setInterval(syncData, 60000); 
+                return () => clearInterval(interval);
+            }, [syncData]);
+
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    const now = new Date();
+                    const next = new Date();
+                    next.setDate(now.getDate() + (RESET_DAY + 7 - now.getDay()) % 7);
+                    next.setHours(RESET_HOUR, 0, 0, 0);
+                    if (now > next) next.setDate(next.getDate() + 7);
+                    const diff = next - now;
+                    const d = Math.floor(diff / (1000 * 60 * 60 * 24)), h = Math.floor((diff / (1000 * 60 * 60)) % 24), m = Math.floor((diff / (1000 * 60)) % 60), s = Math.floor((diff / 1000) % 60);
+                    setCountdown(`${d}d ${h}h ${m}m ${s}s`);
+                    const calcWeek = getGuildWeekId();
+                    if (calcWeek !== currentWeekId) setCurrentWeekId(calcWeek);
+                }, 1000);
+                return () => clearInterval(timer);
+            }, [currentWeekId]);
+
+            const sortedMembers = useMemo(() => [...members].sort((a, b) => a.name.localeCompare(b.name, 'th')), [members]);
+            const weeklyMap = useMemo(() => {
+                const map = {};
+                donations.forEach(d => { if (d.weekId === currentWeekId) map[d.memberId] = d; });
+                return map;
+            }, [donations, currentWeekId]);
+
+            const statsSummary = useMemo(() => {
+                const weeks = [...new Set(donations.map(d => d.weekId))].sort();
+                return sortedMembers.map(m => {
+                    const mDons = donations.filter(d => d.memberId === m.id);
+                    const gold = mDons.reduce((acc, curr) => acc + (parseInt(curr.amount) || 0), 0);
+                    const joinW = m.createdAt ? getGuildWeekId(new Date(m.createdAt)) : (weeks[0] || currentWeekId);
+                    const relevant = weeks.filter(w => w >= joinW);
+                    let missed = 0, active = 0;
+                    relevant.forEach(w => {
+                        const r = mDons.find(d => d.weekId === w);
+                        if ((parseInt(r?.amount) || 0) >= GOAL_AMOUNT) active++; else missed++;
+                    });
+                    return { ...m, gold, missed, active };
+                });
+            }, [sortedMembers, donations, currentWeekId]);
+
+            const handleDonate = async (mId) => {
+                if (isSyncing) return;
+                const donId = `${mId}_${currentWeekId}`;
+                const newRec = { id: donId, memberId: mId, weekId: currentWeekId, amount: GOAL_AMOUNT, status: 'paid', updatedAt: new Date().toISOString() };
+                setDonations(prev => {
+                    const next = [...prev.filter(d => d.id !== donId), newRec];
+                    localStorage.setItem(`${CACHE_KEY_VERSION}_don`, JSON.stringify(next));
+                    return next;
+                });
+                try {
+                    await jsonpRequest({ action: 'updateDonation', memberId: mId, weekId: currentWeekId, amount: GOAL_AMOUNT });
+                    setStatusMsg({ type: 'success', text: 'บันทึกเรียบร้อย' });
+                } catch (err) {
+                    setStatusMsg({ type: 'error', text: 'คลาวด์ไม่สำเร็จ (รอกลับมาซิงค์)' });
+                }
+            };
+
+            const addMember = async (e) => {
+                e.preventDefault();
+                if (!newMemberName.trim() || isSyncing) return;
+                setIsSyncing(true);
+                try {
+                    await jsonpRequest({ action: 'addMember', name: newMemberName.trim() });
+                    setNewMemberName('');
+                    await syncData();
+                } catch (err) { setStatusMsg({ type: 'error', text: err.message }); setIsSyncing(false); }
+            };
+
+            const delMember = async (id) => {
+                if (!window.confirm("ยืนยันการลบสมาชิก?")) return;
+                setIsSyncing(true);
+                try {
+                    await jsonpRequest({ action: 'deleteMember', id });
+                    await syncData();
+                } catch (err) { setStatusMsg({ type: 'error', text: err.message }); setIsSyncing(false); }
+            };
+
+            const addBlacklistMember = async (e) => {
+                e.preventDefault();
+                if (!blackName.trim() || !blackReason.trim() || isSyncing) return;
+                setIsSyncing(true);
+                try {
+                    await jsonpRequest({ action: 'addBlacklist', name: blackName.trim(), reason: blackReason.trim() });
+                    setBlackName(''); setBlackReason('');
+                    await syncData();
+                } catch (err) { setStatusMsg({ type: 'error', text: err.message }); setIsSyncing(false); }
+            };
+
+            const delBlacklistMember = async (id) => {
+                if (!window.confirm("ยืนยันการลบชื่อออกจากแบล็คลิส?")) return;
+                setIsSyncing(true);
+                try {
+                    await jsonpRequest({ action: 'deleteBlacklist', id });
+                    await syncData();
+                } catch (err) { setStatusMsg({ type: 'error', text: err.message }); setIsSyncing(false); }
+            };
+
+            if (isLoading && !statusMsg.type.includes('error')) return (
+                <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-yellow-500 font-thai">
+                    <div className="animate-spin w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full mb-6"></div>
+                    <p className="font-black text-xl tracking-[0.2em] animate-pulse">กำลังซิงค์ข้อมูล Cloud...</p>
+                </div>
+            );
+
+            return (
+                <div className="pb-32 font-thai">
+                    <header className="bg-slate-900/90 backdrop-blur-2xl border-b border-slate-800 sticky top-0 z-40 shadow-2xl p-6">
+                        <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div className="flex items-center gap-5">
+                                <div className="bg-gradient-to-br from-yellow-400 to-amber-600 p-3 rounded-[1.25rem] shadow-[0_0_25px_rgba(234,179,8,0.4)]">
+                                    <Icon name="trophy" className="w-8 h-8 text-slate-950" />
+                                </div>
+                                <div>
+                                    <h1 className="text-2xl font-black italic tracking-wider bg-gradient-to-r from-yellow-100 to-amber-500 bg-clip-text text-transparent uppercase">Guild Tracker Pro</h1>
+                                    <div className="flex items-center gap-2 text-rose-500 text-[10px] font-black mt-1 uppercase">
+                                        <Icon name="timer" className="w-3 h-3" /> Reset: <span className="font-mono">{countdown}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 bg-slate-800/80 p-2 rounded-2xl border border-slate-700 shadow-inner">
+                                <button onClick={() => setCurrentWeekId(getGuildWeekId(new Date(new Date(currentWeekId).getTime() - 7*24*60*60*1000)))} className="p-2.5 hover:bg-slate-700 rounded-xl transition-all"><Icon name="chevron-left" /></button>
+                                <div className="px-5 text-center min-w-[130px]">
+                                    <p className="text-[9px] uppercase text-slate-500 font-black mb-1 tracking-widest">รอบสัปดาห์</p>
+                                    <p className="text-sm font-mono font-black text-blue-400">{new Date(currentWeekId).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })}</p>
+                                </div>
+                                <button onClick={() => setCurrentWeekId(getGuildWeekId(new Date(new Date(currentWeekId).getTime() + 7*24*60*60*1000)))} className="p-2.5 hover:bg-slate-700 rounded-xl transition-all"><Icon name="chevron-right" /></button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-4xl mx-auto p-4 space-y-10 mt-6 font-thai">
+                        <div className={`p-4 rounded-2xl flex items-center justify-between bg-slate-900 border ${statusMsg.type === 'error' ? 'border-rose-500/50 bg-rose-500/5' : 'border-slate-800 shadow-xl'}`}>
+                            <div className="flex items-center gap-3">
+                                {statusMsg.type === 'error' ? <Icon name="alert-circle" className="text-rose-500" /> : <Icon name="wifi" className={isSyncing ? 'animate-pulse text-yellow-500' : 'text-emerald-500'} />}
+                                <span className={`text-xs font-bold italic ${statusMsg.type === 'error' ? 'text-rose-400' : 'text-slate-300'}`}>{statusMsg.text}</span>
+                            </div>
+                            <button onClick={syncData} disabled={isSyncing} className="p-2 hover:bg-slate-800 rounded-xl transition-all cursor-pointer">
+                                <Icon name="refresh-cw" className={isSyncing ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+                            <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] shadow-xl group hover:border-yellow-500/30 transition-all">
+                                <div className="flex justify-between items-start mb-2"><p className="text-[10px] uppercase font-black text-slate-500 tracking-widest">ทองกิลด์สัปดาห์นี้</p><Icon name="coins" className="text-yellow-500 opacity-40" /></div>
+                                <div className="flex items-baseline gap-2 text-yellow-500 font-mono"><span className="text-4xl font-black">{(sortedMembers.reduce((a, m) => a + (parseInt(weeklyMap[m.id]?.amount) || 0), 0)).toLocaleString()}</span><span className="text-xs font-bold uppercase tracking-tighter">Gold</span></div>
+                            </div>
+                            <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] shadow-xl group hover:border-emerald-500/30 transition-all">
+                                <div className="flex justify-between items-start mb-2"><p className="text-[10px] uppercase font-black text-slate-500 tracking-widest">บริจาคสำเร็จ</p><Icon name="check-circle-2" className="text-emerald-500 opacity-40" /></div>
+                                <div className="flex items-baseline gap-2 text-emerald-500 font-mono"><span className="text-4xl font-black">{sortedMembers.filter(m => (parseInt(weeklyMap[m.id]?.amount) || 0) >= GOAL_AMOUNT).length}</span><span className="text-xs font-bold tracking-tighter uppercase">/ {members.length}</span></div>
+                            </div>
+                        </div>
+
+                        <section className="bg-slate-900 rounded-[3rem] border border-slate-800 overflow-hidden shadow-2xl relative">
+                            <div className="p-8 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/50">
+                                <div className="flex items-center gap-4"><Icon name="users" className="text-blue-500" /><h2 className="font-black text-base uppercase italic tracking-[0.2em] text-slate-200">Guild Members</h2></div>
+                                <div className="text-[10px] bg-emerald-600 text-white px-5 py-2 rounded-full font-black tracking-widest uppercase italic shadow-lg shadow-emerald-500/20">Target: 150G</div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead><tr className="text-left text-[10px] text-slate-600 uppercase font-black bg-slate-800/20 tracking-widest"><th className="px-10 py-5">ชื่อตัวละคร</th><th className="px-6 py-5 text-center">สถานะการบริจาค</th><th className="px-10 py-5 text-right">จำนวนทอง</th></tr></thead>
+                                    <tbody className="divide-y divide-slate-800/40">
+                                        {sortedMembers.map(m => {
+                                            const don = weeklyMap[m.id];
+                                            const isPaid = (parseInt(don?.amount) || 0) >= GOAL_AMOUNT;
+                                            return (
+                                                <tr key={m.id} className="group hover:bg-slate-800/40 transition-all duration-300">
+                                                    <td className={`px-10 py-8 font-bold text-lg italic tracking-tight transition-colors ${isPaid ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200'}`}>{m.name}</td>
+                                                    <td className="px-6 py-8">
+                                                        <div className="flex justify-center">
+                                                            {isPaid ? (
+                                                                <div className="flex items-center gap-3 px-8 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-black shadow-[0_0_25px_rgba(16,185,129,0.15)] uppercase tracking-widest cursor-default italic"><Icon name="shield-check" /> สำเร็จ <Icon name="lock" className="w-3 h-3 opacity-30 ml-1" /></div>
+                                                            ) : (
+                                                                <button onClick={() => handleDonate(m.id)} disabled={isSyncing} className="flex items-center gap-3 px-8 py-3 rounded-2xl bg-slate-800 border border-slate-700 text-slate-500 text-xs font-black hover:border-yellow-500/50 hover:text-yellow-500 active:scale-95 transition-all uppercase tracking-[0.2em] shadow-lg italic cursor-pointer"><Icon name="circle" /> ยังไม่บริจาค</button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-10 py-8 text-right font-mono font-black">
+                                                        <div className="flex items-center justify-end gap-6">
+                                                            <span className={`transition-all duration-500 ${isPaid ? 'text-emerald-400 text-2xl drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'text-slate-800'}`}>{don?.amount || 0}</span>
+                                                            {!isPaid && <button onClick={() => delMember(m.id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-700 hover:text-rose-500 transition-all hover:bg-rose-500/10 rounded-2xl cursor-pointer"><Icon name="trash-2" /></button>}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <section className="bg-slate-900 rounded-[3rem] border border-slate-800 overflow-hidden shadow-2xl relative">
+                            <div className="p-8 border-b border-slate-800/50 flex items-center gap-4 bg-blue-500/5 backdrop-blur-sm"><Icon name="bar-chart-3" className="text-blue-500" /><h2 className="font-black text-base uppercase italic tracking-[0.2em] text-slate-300">Lifetime History</h2></div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead><tr className="text-left text-[10px] text-slate-600 uppercase font-black bg-slate-800/20 tracking-widest"><th className="px-10 py-5">รายชื่อสมาชิก</th><th className="px-6 py-5 text-center">สถิติ (สัปดาห์)</th><th className="px-10 py-5 text-right">ทองสะสมถาวร</th></tr></thead>
+                                    <tbody className="divide-y divide-slate-800/40 font-mono font-thai">
+                                        {statsSummary.map(s => (
+                                            <tr key={s.id} className="hover:bg-slate-800/40 transition-all duration-300">
+                                                <td className="px-10 py-7 font-bold text-slate-500 text-base font-sans">{s.name}</td>
+                                                <td className="px-6 py-7 text-center text-sm tracking-tighter">
+                                                    <div className="flex items-center justify-center gap-5">
+                                                        <div className="flex flex-col items-center"><span className="text-[8px] uppercase font-black text-slate-600 mb-1 tracking-widest">บริจาคครบ</span><span className="text-emerald-500 font-black text-xl drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">{s.active}</span></div>
+                                                        <div className="w-[1px] h-6 bg-slate-800 self-end mb-1" />
+                                                        <div className="flex flex-col items-center"><span className="text-[8px] uppercase font-black text-slate-600 mb-1 tracking-widest">ขาด</span><span className={`font-black text-xl ${s.missed > 0 ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'text-slate-800'}`}>{s.missed}</span></div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-10 py-7 text-right">
+                                                    <div className="flex flex-col items-end"><span className="font-black text-yellow-500 text-2xl tracking-tighter drop-shadow-[0_0_10px_rgba(234,179,8,0.3)]">{(s.gold || 0).toLocaleString()}G</span>{s.missed >= 3 && <span className="text-[9px] text-rose-500 font-black uppercase tracking-[0.2em] animate-pulse flex items-center gap-1.5 mt-2 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20 font-sans italic"><Icon name="alert-triangle" className="w-3 h-3" /> Risk: Inactive</span>}</div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <section className="bg-slate-900 rounded-[3rem] border border-rose-500/30 overflow-hidden shadow-2xl relative">
+                            <div className="p-8 border-b border-rose-500/20 flex items-center gap-4 bg-rose-500/5 backdrop-blur-sm"><Icon name="ban" className="text-rose-500" /><h2 className="font-black text-base uppercase italic tracking-[0.2em] text-rose-300">Guild Blacklist</h2></div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead><tr className="text-left text-[10px] text-rose-900/50 uppercase font-black bg-rose-950/20 tracking-widest"><th className="px-10 py-5">รายชื่อตัวละคร</th><th className="px-6 py-5">เหตุผล / หมายเหตุ</th><th className="px-10 py-5 text-right">จัดการ</th></tr></thead>
+                                    <tbody className="divide-y divide-rose-900/10 font-thai">
+                                        {blacklist.length > 0 ? blacklist.map(b => (
+                                            <tr key={b.id} className="group hover:bg-rose-950/10 transition-all duration-300"><td className="px-10 py-6 font-black text-rose-400 text-lg italic">{b.name}</td><td className="px-6 py-6 text-slate-400 text-sm leading-relaxed">{b.reason}</td><td className="px-10 py-6 text-right"><button onClick={() => delBlacklistMember(b.id)} className="p-2 text-rose-900/30 hover:text-rose-500 transition-all hover:bg-rose-500/10 rounded-xl cursor-pointer"><Icon name="trash-2" /></button></td></tr>
+                                        )) : (
+                                            <tr><td colSpan="3" className="px-10 py-10 text-center text-slate-700 font-black uppercase tracking-widest text-[10px]">ยังไม่มีรายชื่อแบล็คลิส</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <section className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-xl relative overflow-hidden group">
+                                <div className="flex items-center gap-4 mb-6"><Icon name="user-plus" className="text-yellow-500" /><h3 className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em]">เพิ่มรายชื่อสมาชิก</h3></div>
+                                <form onSubmit={addMember} className="space-y-4 relative z-10 font-thai"><input type="text" value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} placeholder="ชื่อตัวละครใหม่..." className="w-full bg-slate-800/40 border border-slate-700 rounded-2xl px-6 py-4 focus:border-yellow-500 outline-none text-white font-bold transition-all shadow-inner" /><button type="submit" disabled={!newMemberName.trim() || isSyncing} className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-950 py-4 rounded-2xl font-black transition-all active:scale-95 uppercase text-xs tracking-widest cursor-pointer shadow-lg">{isSyncing ? 'Processing...' : 'บันทึกเข้ากิลด์'}</button></form>
+                            </section>
+                            <section className="bg-slate-900 p-8 rounded-[2.5rem] border border-rose-500/20 shadow-xl relative overflow-hidden group">
+                                <div className="flex items-center gap-4 mb-6"><Icon name="user-x" className="text-rose-500" /><h3 className="text-[10px] font-black uppercase text-rose-500/50 tracking-[0.3em]">เพิ่มแบล็คลิส</h3></div>
+                                <form onSubmit={addBlacklistMember} className="space-y-4 relative z-10 font-thai"><input type="text" value={blackName} onChange={(e) => setBlackName(e.target.value)} placeholder="ชื่อที่ต้องการแบน..." className="w-full bg-slate-800/40 border border-slate-700 rounded-2xl px-6 py-4 focus:border-rose-500 outline-none text-white font-bold transition-all shadow-inner" /><input type="text" value={blackReason} onChange={(e) => setBlackReason(e.target.value)} placeholder="เหตุผลที่แบน..." className="w-full bg-slate-800/40 border border-slate-700 rounded-2xl px-6 py-4 focus:border-rose-500 outline-none text-white font-bold transition-all shadow-inner" /><button type="submit" disabled={!blackName.trim() || !blackReason.trim() || isSyncing} className="w-full bg-rose-600 hover:bg-rose-500 text-white py-4 rounded-2xl font-black transition-all active:scale-95 uppercase text-xs tracking-widest cursor-pointer shadow-lg">{isSyncing ? 'Processing...' : 'บันทึกแบล็คลิส'}</button></form>
+                            </section>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
