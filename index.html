@@ -159,6 +159,18 @@
         </div>
     </div>
 
+    <!-- Modal: Error Message -->
+    <div id="modal-error" class="fixed inset-0 z-[110] hidden items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-xs p-6 text-center shadow-2xl animate-in zoom-in-95 duration-200">
+            <div class="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
+                <i data-lucide="alert-circle" class="w-6 h-6"></i>
+            </div>
+            <h2 class="text-base font-bold text-slate-800 mb-1">แจ้งเตือน</h2>
+            <p id="errorMessage" class="text-xs text-slate-500 mb-6 px-2"></p>
+            <button onclick="toggleModal('modal-error', false)" class="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-all">ตกลง</button>
+        </div>
+    </div>
+
     <!-- Modal: Reset Confirmation -->
     <div id="modal-reset" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div class="bg-white rounded-[2rem] w-full max-w-xs p-8 text-center animate-in zoom-in-95">
@@ -265,7 +277,7 @@
                 const input = document.getElementById('adminPasswordInput');
                 input.classList.add('border-red-500');
                 setTimeout(() => input.classList.remove('border-red-500'), 500);
-                alert("Password incorrect");
+                showError("รหัสผ่านไม่ถูกต้อง");
             }
         }
 
@@ -300,13 +312,23 @@
             try {
                 const text = await navigator.clipboard.readText();
                 document.getElementById('quickInput').value = text;
-            } catch (err) { alert("Please paste manually."); }
+            } catch (err) { }
         }
 
         async function addMemberAction() {
             const input = document.getElementById('quickInput');
             const name = input.value.trim();
             if (!name) return;
+
+            // ตรวจสอบรายชื่อซ้ำ (Check for duplicate names)
+            const isDuplicate = members.some(m => m.name.toLowerCase() === name.toLowerCase());
+            if (isDuplicate) {
+                showError(`ชื่อ "${name}" มีอยู่ในระบบเรียบร้อยแล้วครับ`);
+                input.classList.add('border-red-300', 'ring-2', 'ring-red-100');
+                setTimeout(() => input.classList.remove('border-red-300', 'ring-2', 'ring-red-100'), 2000);
+                return;
+            }
+
             const btn = document.getElementById('btnAddQuick');
             btn.classList.add('btn-loading');
             await sync('addMember', { name });
@@ -316,7 +338,7 @@
 
         async function handleToggle(id) {
             if (!isAdmin) {
-                alert("Administrator access required 🔒");
+                showError("เฉพาะ Admin เท่านั้นที่สามารถจัดการข้อมูลได้ 🔒");
                 return;
             }
             const btn = document.getElementById(`btn-${id}`);
@@ -344,6 +366,11 @@
             const btn = document.getElementById('btnDeleteConfirm');
             btn.onclick = async () => { btn.classList.add('btn-loading'); await sync('deleteMember', { id }); toggleModal('modal-delete', false); btn.classList.remove('btn-loading'); };
             toggleModal('modal-delete', true);
+        }
+
+        function showError(msg) {
+            document.getElementById('errorMessage').innerText = msg;
+            toggleModal('modal-error', true);
         }
 
         function render() {
@@ -408,6 +435,7 @@
         function toggleModal(id, show) { 
             const el = document.getElementById(id);
             if (el) el.classList.toggle('hidden', !show); 
+            if (el) el.classList.toggle('modal-active', show); 
             if (show && id === 'modal-admin') setTimeout(() => document.getElementById('adminPasswordInput').focus(), 150);
         }
         window.onload = () => sync();
