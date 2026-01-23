@@ -16,15 +16,18 @@
         .btn-loading { pointer-events: none; position: relative; color: transparent !important; }
         .btn-loading::after {
             content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px;
-            margin-left: -8px; margin-top: -8px; border: 2px solid #4f46e5; border-top-color: transparent;
+            margin-left: -8px; margin-top: -8px; border: 2px solid currentColor; border-top-color: transparent;
             border-radius: 50%; animation: spin 0.6s linear infinite;
         }
+        /* ถ้าปุ่มพื้นหลังขาว ให้ loading สีเทา */
         .btn-loading-white::after { border-color: #94a3b8; border-top-color: transparent; }
+        /* ถ้าปุ่มพื้นหลังสี ให้ loading สีขาว */
+        .btn-loading-colored::after { border-color: #ffffff; border-top-color: transparent; }
         
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 pb-44"> <!-- เพิ่ม Padding ล่างเผื่อแผงควบคุม -->
+<body class="bg-slate-50 text-slate-800 pb-44">
 
     <!-- Header -->
     <header class="bg-white p-4 shadow-sm sticky top-0 z-30 border-b border-slate-100">
@@ -34,7 +37,7 @@
                     <i data-lucide="coins" class="w-6 h-6 text-yellow-500"></i>
                     Guild Tracker
                 </h1>
-                <div id="statusText" class="text-[10px] text-green-600 font-medium flex items-center gap-1 mt-0.5">
+                <div id="statusText" class="text-[10px] text-green-600 font-bold flex items-center gap-1 mt-0.5">
                     <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> พร้อมใช้งาน
                 </div>
             </div>
@@ -65,6 +68,7 @@
                      </div>
                 </div>
             </div>
+            <!-- Progress Bar -->
             <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                 <div id="progressBar" class="bg-indigo-500 h-3 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
             </div>
@@ -78,15 +82,16 @@
 
         <!-- Member List -->
         <div id="memberList" class="space-y-3">
+            <!-- Loading State -->
             <div class="py-12 text-center text-slate-400">
                 <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-3 text-indigo-300"></i>
-                กำลังโหลดรายชื่อ...
+                กำลังดึงข้อมูล...
             </div>
         </div>
 
     </main>
 
-    <!-- NEW: Fixed Bottom Input Bar (ช่องเพิ่มสมาชิกแบบติดด้านล่าง) -->
+    <!-- Fixed Bottom Input Bar (แถบเพิ่มสมาชิกด้านล่าง) -->
     <div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 pb-8 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.05)]">
         <div class="max-w-md mx-auto w-full">
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block ml-1">เพิ่มสมาชิกใหม่</label>
@@ -95,8 +100,8 @@
                     <input type="text" id="quickInput" placeholder="พิมพ์ชื่อ หรือกดวาง..." 
                         class="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700 placeholder:text-slate-400">
                     
-                    <!-- ปุ่มวางชื่อ (Paste) -->
-                    <button onclick="pasteName()" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 active:scale-90 transition-all" title="วางข้อความจาก Clipboard">
+                    <!-- ปุ่มวาง (Paste) -->
+                    <button onclick="pasteName()" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 active:scale-90 transition-all" title="วางข้อความ">
                         <i data-lucide="clipboard" class="w-5 h-5"></i>
                     </button>
                 </div>
@@ -111,7 +116,7 @@
         </div>
     </div>
 
-    <!-- Modal: Reset -->
+    <!-- Modal: Reset (หน้าต่างยืนยันรีเซต) -->
     <div id="modal-reset" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
         <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl text-center animate-in zoom-in-95">
             <div class="w-14 h-14 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -126,7 +131,7 @@
         </div>
     </div>
 
-    <!-- Modal: Delete -->
+    <!-- Modal: Delete (หน้าต่างยืนยันลบคน) -->
     <div id="modal-delete" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
         <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl text-center">
             <h2 class="text-lg font-bold text-slate-800 mb-2">ลบรายชื่อ?</h2>
@@ -140,23 +145,26 @@
 
     <script>
         // -----------------------------------------------------------------
-        // [สำคัญ] ใส่ URL ของ Google Apps Script ที่ Deploy ล่าสุดตรงนี้
+        // [สำคัญ] ใส่ URL ของ Google Apps Script ที่ Deploy ล่าสุด (New Version) ตรงนี้
+        // ต้องลงท้ายด้วย /exec
         // -----------------------------------------------------------------
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOUgK9w6c0KuPywiufQUmYSRxqEkSWrdqozn5QL3iYeryuegQ_q75ffW9hMFSX-MhP/exec"; 
         
         let members = [];
-        let donations = []; // เก็บ list ของ memberId ที่จ่ายแล้ว
+        let donations = []; 
         let isSyncing = false;
 
+        // --- ระบบเชื่อมต่อ Google Sheet (รองรับ GitHub) ---
         async function callGAS(params) {
             return new Promise((resolve, reject) => {
                 const cbName = 'cb' + Math.floor(Math.random() * 1000000);
                 const script = document.createElement('script');
                 
+                // Timeout 30 วินาที
                 const timer = setTimeout(() => { 
-                    reject("Timeout"); 
                     cleanup(); 
-                }, 20000);
+                    reject("Timeout: เชื่อมต่อ Server ไม่สำเร็จ (ลองรีเฟรช)"); 
+                }, 30000);
 
                 const cleanup = () => {
                     clearTimeout(timer);
@@ -169,8 +177,15 @@
                     resolve(data);
                 };
                 
-                script.src = `${SCRIPT_URL}?${new URLSearchParams({ ...params, callback: cbName })}`;
-                script.onerror = () => { cleanup(); reject("Network Error"); };
+                // ส่ง Timestamp ป้องกัน Cache
+                const safeParams = new URLSearchParams({ 
+                    ...params, 
+                    callback: cbName,
+                    _t: new Date().getTime() 
+                });
+
+                script.src = `${SCRIPT_URL}?${safeParams}`;
+                script.onerror = () => { cleanup(); reject("Network Error: ถูกบล็อกการเชื่อมต่อ"); };
                 document.body.appendChild(script);
             });
         }
@@ -184,7 +199,7 @@
                 if (data.members) members = data.members;
                 if (data.donations) donations = data.donations;
 
-                // กรณีบันทึกแล้วแต่ไม่ได้ data กลับมา ให้ดึงใหม่
+                // ถ้าโหลดมาแล้ว member หาย ให้โหลดใหม่ (Fallback)
                 if (action !== 'getAllData' && !data.members) {
                     await sync('getAllData');
                     return;
@@ -193,7 +208,7 @@
                 render();
             } catch (e) {
                 console.error(e);
-                alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+                alert("ข้อผิดพลาด: " + e);
             } finally {
                 setLoading(false);
             }
@@ -203,16 +218,16 @@
             isSyncing = state;
             const el = document.getElementById('statusText');
             if(state) {
-                el.innerHTML = `<i data-lucide="refresh-cw" class="w-3 h-3 animate-spin"></i> กำลังบันทึก...`;
+                el.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> กำลังบันทึก...`;
                 el.className = "text-[10px] text-orange-500 font-bold flex items-center gap-1 mt-0.5";
             } else {
                 el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> พร้อมใช้งาน`;
-                el.className = "text-[10px] text-green-600 font-medium flex items-center gap-1 mt-0.5";
+                el.className = "text-[10px] text-green-600 font-bold flex items-center gap-1 mt-0.5";
             }
             lucide.createIcons();
         }
 
-        // --- New Actions for Bottom Bar ---
+        // --- ฟังก์ชันการทำงาน ---
 
         async function pasteName() {
             try {
@@ -221,8 +236,7 @@
                 input.value = text;
                 input.focus();
             } catch (err) {
-                // กรณี Browser บล็อกการเข้าถึง Clipboard อัตโนมัติ
-                alert("ไม่สามารถวางอัตโนมัติได้ (Browser Block) \nกรุณากดที่ช่องว่างแล้วกดวาง (Paste) ด้วยตัวเอง");
+                alert("Browser ไม่รองรับการวางอัตโนมัติ กรุณากดค้างแล้ววางเอง");
                 document.getElementById('quickInput').focus();
             }
         }
@@ -233,22 +247,18 @@
             if (!name) return;
 
             const btn = document.getElementById('btnAddQuick');
-            const originalContent = btn.innerHTML; // เก็บไอคอนเดิมไว้
+            const originalContent = btn.innerHTML;
             
-            // เปลี่ยนปุ่มเป็น Loading
             btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>`;
-            btn.classList.add('pointer-events-none', 'opacity-80'); // ล็อคปุ่ม
+            btn.classList.add('pointer-events-none', 'opacity-80');
 
             await sync('addMember', { name });
 
-            // Reset
             input.value = '';
             btn.innerHTML = originalContent;
             btn.classList.remove('pointer-events-none', 'opacity-80');
-            lucide.createIcons(); // โหลดไอคอนใหม่
+            lucide.createIcons();
         }
-
-        // --- Existing Actions ---
 
         async function handleToggle(id) {
             const btn = document.getElementById(`btn-${id}`);
@@ -256,7 +266,7 @@
                 if(btn.classList.contains('bg-white')) {
                     btn.classList.add('btn-loading', 'btn-loading-white');
                 } else {
-                    btn.classList.add('btn-loading');
+                    btn.classList.add('btn-loading', 'btn-loading-colored');
                 }
             }
             await sync('toggleDonation', { memberId: id });
@@ -269,13 +279,11 @@
         async function handleReset() {
             const btn = document.getElementById('btnResetConfirm');
             btn.innerText = "";
-            btn.classList.add('btn-loading');
-            
+            btn.classList.add('btn-loading', 'btn-loading-colored');
             await sync('resetAll');
-            
             toggleModal('modal-reset', false);
             btn.innerText = "ยืนยัน";
-            btn.classList.remove('btn-loading');
+            btn.classList.remove('btn-loading', 'btn-loading-colored');
         }
 
         function confirmDelete(id, name) {
@@ -284,16 +292,16 @@
             
             btn.onclick = async function() {
                 btn.innerText = "";
-                btn.classList.add('btn-loading');
+                btn.classList.add('btn-loading', 'btn-loading-colored');
                 await sync('deleteMember', { id });
                 toggleModal('modal-delete', false);
                 btn.innerText = "ลบเลย";
-                btn.classList.remove('btn-loading');
+                btn.classList.remove('btn-loading', 'btn-loading-colored');
             };
             toggleModal('modal-delete', true);
         }
 
-        // --- Render Logic ---
+        // --- การแสดงผล (Render) ---
 
         function render() {
             const list = document.getElementById('memberList');
@@ -303,6 +311,7 @@
             const doneSet = new Set(donations.map(d => String(d.memberId)));
             const filteredMembers = members.filter(m => m.name.toLowerCase().includes(search));
 
+            // เรียงลำดับ: ยังไม่จ่ายขึ้นก่อน -> จ่ายแล้วอยู่ล่าง
             filteredMembers.sort((a, b) => {
                 const aDone = doneSet.has(String(a.id));
                 const bDone = doneSet.has(String(b.id));
@@ -349,7 +358,7 @@
                 list.innerHTML = `<div class="text-center text-slate-400 py-10 text-sm font-light">ไม่พบรายชื่อ...</div>`;
             }
 
-            // Update Dashboard
+            // คำนวณยอดเงิน
             const total = members.length;
             const done = members.filter(m => doneSet.has(String(m.id))).length;
             const totalGold = done * 150;
