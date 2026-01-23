@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบเช็คชื่อกิลด์ (150g)</title>
+    <title>Guild Tracker - ระบบเช็คชื่อทองกิลด์ (Admin Mode)</title>
     <!-- Tailwind CSS & Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -19,8 +19,6 @@
             margin-left: -8px; margin-top: -8px; border: 2px solid #4f46e5; border-top-color: transparent;
             border-radius: 50%; animation: spin 0.6s linear infinite;
         }
-        .btn-loading-white::after { border-color: #94a3b8; border-top-color: transparent; }
-        
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -38,17 +36,26 @@
                     <i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> กำลังเชื่อมต่อ...
                 </div>
             </div>
-            <!-- ปุ่ม Reset -->
-            <button onclick="confirmReset()" class="bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs font-bold border border-red-100 hover:bg-red-100 active:scale-95 transition-all flex items-center gap-1">
-                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                รีเซตใหม่
-            </button>
+            
+            <div class="flex items-center gap-2">
+                <!-- Admin Login/Logout Button -->
+                <button id="adminToggleBtn" onclick="openAdminModal()" class="p-2 rounded-lg text-xs font-bold border transition-all flex items-center gap-1 bg-white border-slate-200 text-slate-500 shadow-sm">
+                    <i id="adminIcon" data-lucide="lock" class="w-3.5 h-3.5"></i>
+                    <span id="adminBtnText">Admin</span>
+                </button>
+                
+                <!-- Reset Button -->
+                <button id="resetBtn" onclick="confirmReset()" class="bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs font-bold border border-red-100 hover:bg-red-100 active:scale-95 transition-all flex items-center gap-1 disabled:opacity-40 disabled:grayscale shadow-sm">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    รีเซต
+                </button>
+            </div>
         </div>
     </header>
 
     <main class="max-w-md mx-auto p-4 space-y-5">
         
-        <!-- Dashboard แสดงยอดทอง -->
+        <!-- Dashboard -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
             <div class="flex justify-between items-end mb-4">
                 <div>
@@ -77,60 +84,76 @@
         </div>
 
         <!-- Member List -->
-        <div id="memberList" class="space-y-3">
-            <!-- Loading State -->
+        <div id="memberList" class="space-y-3 min-h-[200px]">
             <div class="py-12 text-center text-slate-400">
-                <div class="inline-block animate-bounce mb-2">
-                    <i data-lucide="cloud-download" class="w-8 h-8 text-indigo-300"></i>
-                </div>
-                <p>กำลังดึงข้อมูลจาก Server...</p>
-                <p class="text-xs text-slate-300 mt-2">(หากรอนานเกิน 10 วิ ให้ตรวจสอบ URL)</p>
+                <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-3 text-indigo-300"></i>
+                <p>กำลังดึงข้อมูลล่าสุด...</p>
             </div>
         </div>
-
     </main>
 
-    <!-- Fixed Bottom Input Bar -->
-    <div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 pb-8 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.05)]">
+    <!-- Bottom Input Bar -->
+    <div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 pb-10 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.05)]">
         <div class="max-w-md mx-auto w-full">
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block ml-1">เพิ่มสมาชิกใหม่</label>
             <div class="flex gap-2">
                 <div class="relative flex-1">
-                    <input type="text" id="quickInput" placeholder="พิมพ์ชื่อ หรือกดวาง..." 
-                        class="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700 placeholder:text-slate-400">
+                    <input type="text" id="quickInput" placeholder="พิมพ์ชื่อ..." 
+                        class="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700">
                     
-                    <button onclick="pasteName()" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 active:scale-90 transition-all" title="วางข้อความ">
+                    <button onclick="pasteFromClipboard()" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600" title="วางชื่อ">
                         <i data-lucide="clipboard" class="w-5 h-5"></i>
                     </button>
                 </div>
 
-                <button onclick="addMemberQuick()" id="btnAddQuick" 
+                <button onclick="addMemberAction()" id="btnAddQuick" 
                     class="bg-slate-900 text-white px-5 py-3 rounded-xl font-bold shadow-lg hover:bg-slate-800 active:scale-95 transition-all flex items-center gap-2 shrink-0">
                     <i data-lucide="plus" class="w-5 h-5"></i>
-                    <span class="hidden sm:inline">เพิ่ม</span>
+                    <span>เพิ่ม</span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Admin Password -->
+    <div id="modal-admin" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-slate-800">โหมด Admin</h2>
+                <button onclick="toggleModal('modal-admin', false)" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <p class="text-sm text-slate-500 mb-4">กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
+            <input type="password" id="adminPasswordInput" placeholder="รหัสผ่าน 4 หลัก" class="w-full px-4 py-3 rounded-xl border bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500 mb-4 text-center text-xl tracking-widest font-mono">
+            <button onclick="checkAdminPassword()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-all">ตกลง</button>
+        </div>
+    </div>
+
+    <!-- Modal: Admin Logout -->
+    <div id="modal-logout" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-2">ออกจากโหมด Admin?</h2>
+            <p class="text-sm text-slate-500 mb-6">ฟังก์ชันการแก้ไขจะถูกล็อก</p>
+            <div class="flex gap-3">
+                <button onclick="logoutAdmin()" class="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-bold">ออกจากระบบ</button>
+                <button onclick="toggleModal('modal-logout', false)" class="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl font-bold">ยกเลิก</button>
             </div>
         </div>
     </div>
 
     <!-- Modal: Reset -->
     <div id="modal-reset" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl text-center animate-in zoom-in-95">
-            <div class="w-14 h-14 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                <i data-lucide="alert-triangle" class="w-7 h-7"></i>
-            </div>
-            <h2 class="text-lg font-bold text-slate-800">เริ่มรอบใหม่?</h2>
+        <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-2">เริ่มรอบใหม่?</h2>
             <p class="text-sm text-slate-500 mb-6">จะลบค่าการบริจาคทั้งหมด</p>
             <div class="flex gap-3">
-                <button onclick="handleReset()" id="btnResetConfirm" class="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-bold shadow-md">ยืนยัน</button>
+                <button onclick="handleResetAction()" id="btnResetConfirm" class="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-bold">ยืนยัน</button>
                 <button onclick="toggleModal('modal-reset', false)" class="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-xl font-bold">ยกเลิก</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal: Delete -->
     <div id="modal-delete" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl text-center">
+        <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl text-center animate-in zoom-in-95 duration-200">
             <h2 class="text-lg font-bold text-slate-800 mb-2">ลบรายชื่อ?</h2>
             <p id="deleteNameDisplay" class="text-sm text-slate-500 mb-6 font-bold"></p>
             <div class="flex gap-3">
@@ -142,236 +165,221 @@
 
     <script>
         // -----------------------------------------------------------------
-        // URL ที่คุณให้มา (ใส่ให้แล้ว)
+        // [สำคัญ] นำ URL จากขั้นตอนการ Deploy แบบ Anyone มาวางทับตรงนี้
         // -----------------------------------------------------------------
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOUgK9w6c0KuPywiufQUmYSRxqEkSWrdqozn5QL3iYeryuegQ_q75ffW9hMFSX-MhP/exec"; 
+        const ADMIN_PASSWORD = "1899";
         
         let members = [];
         let donations = []; 
         let isSyncing = false;
+        let isAdmin = localStorage.getItem('guildTrackerIsAdmin') === 'true';
 
         async function callGAS(params) {
             return new Promise((resolve, reject) => {
                 const cbName = 'cb' + Math.floor(Math.random() * 1000000);
                 const script = document.createElement('script');
+                const timeout = setTimeout(() => { cleanup(); reject("Timeout: โปรดเช็คการตั้งค่า Anyone ใน GAS"); }, 30000);
+
+                window[cbName] = (data) => { cleanup(); resolve(data); };
+                const cleanup = () => { clearTimeout(timeout); delete window[cbName]; if(document.body.contains(script)) document.body.removeChild(script); }
                 
-                // เพิ่มเวลา Timeout เป็น 30 วินาที
-                const timer = setTimeout(() => { 
-                    cleanup(); 
-                    reject("Timeout: เชื่อมต่อ Server ไม่สำเร็จ"); 
-                }, 30000);
-
-                const cleanup = () => {
-                    clearTimeout(timer);
-                    delete window[cbName];
-                    if(document.body.contains(script)) document.body.removeChild(script);
-                }
-
-                window[cbName] = (data) => {
-                    cleanup();
-                    resolve(data);
-                };
-                
-                // ส่ง Timestamp ป้องกัน Cache
-                const safeParams = new URLSearchParams({ 
-                    ...params, 
-                    callback: cbName,
-                    _t: new Date().getTime() 
-                });
-
-                script.src = `${SCRIPT_URL}?${safeParams}`;
-                script.onerror = () => { cleanup(); reject("Network Error: ถูกบล็อกการเชื่อมต่อ"); };
+                script.src = `${SCRIPT_URL}?${new URLSearchParams({ ...params, callback: cbName })}`;
+                script.onerror = () => { cleanup(); reject("Network Error: ติดต่อ Server ไม่ได้"); };
                 document.body.appendChild(script);
             });
         }
 
         async function sync(action = 'getAllData', payload = {}) {
             if (isSyncing) return;
-            setLoading(true);
+            setLoadingState(true);
             try {
                 const data = await callGAS({ action, ...payload });
-                
                 if (data.members) members = data.members;
                 if (data.donations) donations = data.donations;
-
-                if (action !== 'getAllData' && !data.members) {
-                    await sync('getAllData');
-                    return;
-                }
-
                 render();
             } catch (e) {
                 console.error(e);
-                alert("ข้อผิดพลาด: " + e);
             } finally {
-                setLoading(false);
+                setLoadingState(false);
             }
         }
 
-        function setLoading(state) {
+        function setLoadingState(state) {
             isSyncing = state;
             const el = document.getElementById('statusText');
-            if(state) {
-                el.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> กำลังบันทึก...`;
-                el.className = "text-[10px] text-orange-500 font-bold flex items-center gap-1 mt-0.5";
-            } else {
-                el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> พร้อมใช้งาน`;
-                el.className = "text-[10px] text-green-600 font-medium flex items-center gap-1 mt-0.5";
+            if (el) {
+                el.innerHTML = state ? `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> กำลังซิงค์...` : `<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> เชื่อมต่อแล้ว`;
+                el.className = state ? "text-[10px] text-orange-500 font-bold flex items-center gap-1 mt-0.5" : "text-[10px] text-green-600 font-medium flex items-center gap-1 mt-0.5";
             }
             lucide.createIcons();
         }
 
-        // --- Actions ---
-
-        async function pasteName() {
-            try {
-                const text = await navigator.clipboard.readText();
-                const input = document.getElementById('quickInput');
-                input.value = text;
-                input.focus();
-            } catch (err) {
-                alert("Browser ไม่รองรับการวางอัตโนมัติ กรุณากดค้างแล้ววางเอง");
-                document.getElementById('quickInput').focus();
+        // --- Admin Logic ---
+        function openAdminModal() {
+            if (isAdmin) {
+                toggleModal('modal-logout', true);
+            } else {
+                document.getElementById('adminPasswordInput').value = '';
+                toggleModal('modal-admin', true);
             }
         }
 
-        async function addMemberQuick() {
+        function checkAdminPassword() {
+            const pass = document.getElementById('adminPasswordInput').value;
+            if (pass === ADMIN_PASSWORD) {
+                isAdmin = true;
+                localStorage.setItem('guildTrackerIsAdmin', 'true');
+                toggleModal('modal-admin', false);
+                render();
+            } else {
+                alert("รหัสผ่านไม่ถูกต้อง!");
+            }
+        }
+
+        function logoutAdmin() {
+            isAdmin = false;
+            localStorage.setItem('guildTrackerIsAdmin', 'false');
+            toggleModal('modal-logout', false);
+            render();
+        }
+
+        function updateAdminUI() {
+            const adminBtn = document.getElementById('adminToggleBtn');
+            const adminBtnText = document.getElementById('adminBtnText');
+            const resetBtn = document.getElementById('resetBtn');
+            const icon = document.getElementById('adminIcon');
+            
+            if (isAdmin) {
+                adminBtn.className = "p-2 rounded-lg text-xs font-bold border border-indigo-200 bg-indigo-50 text-indigo-600 flex items-center gap-1 shadow-sm";
+                adminBtnText.innerText = "Admin (ON)";
+                resetBtn.disabled = false;
+                icon.setAttribute('data-lucide', 'unlock');
+            } else {
+                adminBtn.className = "p-2 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-500 flex items-center gap-1 shadow-sm";
+                adminBtnText.innerText = "Admin (OFF)";
+                resetBtn.disabled = true;
+                icon.setAttribute('data-lucide', 'lock');
+            }
+            lucide.createIcons();
+        }
+
+        // --- User Actions ---
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('quickInput').value = text;
+            } catch (err) { alert("กรุณากดค้างที่ช่องว่างเพื่อวางชื่อด้วยตนเอง"); }
+        }
+
+        async function addMemberAction() {
             const input = document.getElementById('quickInput');
             const name = input.value.trim();
             if (!name) return;
-
             const btn = document.getElementById('btnAddQuick');
-            const originalContent = btn.innerHTML;
-            
-            btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>`;
-            btn.classList.add('pointer-events-none', 'opacity-80');
-
+            btn.classList.add('btn-loading');
             await sync('addMember', { name });
-
             input.value = '';
-            btn.innerHTML = originalContent;
-            btn.classList.remove('pointer-events-none', 'opacity-80');
-            lucide.createIcons();
+            btn.classList.remove('btn-loading');
         }
 
         async function handleToggle(id) {
-            const btn = document.getElementById(`btn-${id}`);
-            if(btn) {
-                if(btn.classList.contains('bg-white')) {
-                    btn.classList.add('btn-loading', 'btn-loading-white');
-                } else {
-                    btn.classList.add('btn-loading');
-                }
+            if (!isAdmin) {
+                alert("เฉพาะ Admin เท่านั้นที่สามารถบันทึกได้ 🔒");
+                return;
             }
+            const btn = document.getElementById(`btn-${id}`);
+            if(btn) btn.classList.add('btn-loading');
             await sync('toggleDonation', { memberId: id });
         }
 
-        function confirmReset() {
-            toggleModal('modal-reset', true);
+        function confirmReset() { 
+            if (!isAdmin) return;
+            toggleModal('modal-reset', true); 
         }
-
-        async function handleReset() {
+        
+        async function handleResetAction() {
+            if (!isAdmin) return;
             const btn = document.getElementById('btnResetConfirm');
-            btn.innerText = "";
             btn.classList.add('btn-loading');
             await sync('resetAll');
             toggleModal('modal-reset', false);
-            btn.innerText = "ยืนยัน";
             btn.classList.remove('btn-loading');
         }
 
         function confirmDelete(id, name) {
+            if (!isAdmin) return;
             document.getElementById('deleteNameDisplay').innerText = name;
             const btn = document.getElementById('btnDeleteConfirm');
-            
-            btn.onclick = async function() {
-                btn.innerText = "";
-                btn.classList.add('btn-loading');
-                await sync('deleteMember', { id });
-                toggleModal('modal-delete', false);
-                btn.innerText = "ลบเลย";
-                btn.classList.remove('btn-loading');
-            };
+            btn.onclick = async () => { btn.classList.add('btn-loading'); await sync('deleteMember', { id }); toggleModal('modal-delete', false); btn.classList.remove('btn-loading'); };
             toggleModal('modal-delete', true);
         }
 
         // --- Render ---
-
         function render() {
+            updateAdminUI();
+            
             const list = document.getElementById('memberList');
-            const search = document.getElementById('searchInput').value.toLowerCase();
+            const searchInput = document.getElementById('searchInput');
+            const search = searchInput ? searchInput.value.toLowerCase() : '';
+            
             list.innerHTML = '';
-
             const doneSet = new Set(donations.map(d => String(d.memberId)));
-            const filteredMembers = members.filter(m => m.name.toLowerCase().includes(search));
-
-            filteredMembers.sort((a, b) => {
-                const aDone = doneSet.has(String(a.id));
-                const bDone = doneSet.has(String(b.id));
-                if (aDone === bDone) return 0;
-                return aDone ? 1 : -1;
-            });
-
-            filteredMembers.forEach(m => {
+            const filtered = members.filter(m => m.name.toLowerCase().includes(search));
+            
+            filtered.sort((a, b) => (doneSet.has(String(a.id)) === doneSet.has(String(b.id)) ? 0 : doneSet.has(String(a.id)) ? 1 : -1));
+            
+            filtered.forEach(m => {
                 const isDone = doneSet.has(String(m.id));
-                
                 const card = document.createElement('div');
-                card.className = `p-3 rounded-2xl flex items-center justify-between transition-all duration-300 ${isDone ? 'bg-green-50/50 border border-green-100 opacity-90' : 'bg-white border border-slate-100 shadow-sm'}`;
+                card.className = `p-3 rounded-2xl flex items-center justify-between transition-all ${isDone ? 'bg-green-50/50 border border-green-100' : 'bg-white border border-slate-100 shadow-sm'}`;
                 
-                card.innerHTML = `
-                    <div class="flex items-center gap-3 overflow-hidden">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isDone ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}">
-                            ${m.name.charAt(0)}
-                        </div>
-                        <div class="truncate">
-                            <div class="font-bold text-slate-700 truncate text-sm sm:text-base">${m.name}</div>
-                            <div class="text-[10px] ${isDone ? 'text-green-600 font-bold' : 'text-slate-400'}">${isDone ? 'ได้รับ 150g แล้ว' : 'รอการบริจาค'}</div>
-                        </div>
-                    </div>
+                const deleteBtnHtml = isAdmin 
+                    ? `<button onclick="confirmDelete('${m.id}', '${m.name}')" class="p-2 text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`
+                    : ``;
 
-                    <div class="flex items-center gap-2 shrink-0">
-                        <button id="btn-${m.id}" onclick="handleToggle('${m.id}')" 
-                            class="w-28 py-2 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1
-                            ${isDone 
-                                ? 'bg-green-500 text-white hover:bg-green-600' 
-                                : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}">
-                            ${isDone 
-                                ? '<i data-lucide="check" class="w-3.5 h-3.5"></i> บริจาคแล้ว' 
-                                : 'ยังไม่บริจาค'}
-                        </button>
-                        <button onclick="confirmDelete('${m.id}', '${m.name}')" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
+                card.innerHTML = `
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isDone ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}">
+                        ${m.name.charAt(0)}
                     </div>
-                `;
+                    <div class="truncate">
+                        <div class="font-bold text-slate-700 truncate text-sm">${m.name}</div>
+                        <div class="text-[10px] ${isDone ? 'text-green-600 font-bold' : 'text-slate-400'}">${isDone ? 'บริจาคแล้ว' : 'ยังไม่บริจาค'}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="btn-${m.id}" onclick="handleToggle('${m.id}')" 
+                        class="w-24 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 ${isDone ? 'bg-green-500 text-white' : 'bg-white text-slate-500 border border-slate-200'} ${!isAdmin ? 'opacity-50' : 'active:scale-95 shadow-sm'}">
+                        ${!isAdmin ? '<i data-lucide="lock" class="w-3 h-3"></i>' : ''}
+                        ${isDone ? 'บริจาคแล้ว' : 'ยังไม่บริจาค'}
+                    </button>
+                    ${deleteBtnHtml}
+                </div>`;
                 list.appendChild(card);
             });
 
-            if (filteredMembers.length === 0) {
-                list.innerHTML = `<div class="text-center text-slate-400 py-10 text-sm font-light">ไม่พบรายชื่อ...</div>`;
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="text-center text-slate-400 py-10 text-sm font-light">ไม่พบรายชื่อสมาชิก</div>`;
             }
 
-            // Dashboard Updates
-            const total = members.length;
-            const done = members.filter(m => doneSet.has(String(m.id))).length;
-            const totalGold = done * 150;
-            
-            document.getElementById('totalCount').innerText = total;
-            document.getElementById('doneCount').innerText = done;
-            document.getElementById('totalGoldDisplay').innerText = totalGold.toLocaleString();
-            
-            const percent = total === 0 ? 0 : (done / total) * 100;
-            document.getElementById('progressBar').style.width = `${percent}%`;
-
+            const doneCount = members.filter(m => doneSet.has(String(m.id))).length;
+            document.getElementById('totalCount').innerText = members.length;
+            document.getElementById('doneCount').innerText = doneCount;
+            document.getElementById('totalGoldDisplay').innerText = (doneCount * 150).toLocaleString();
+            document.getElementById('progressBar').style.width = `${members.length ? (doneCount/members.length)*100 : 0}%`;
             lucide.createIcons();
         }
 
-        function toggleModal(id, show) {
+        function toggleModal(id, show) { 
             const el = document.getElementById(id);
-            if(show) { el.classList.add('modal-active'); }
-            else el.classList.remove('modal-active');
+            if (el) el.classList.toggle('hidden', !show); 
+            if (el) el.classList.toggle('modal-active', show); 
+            if (show && id === 'modal-admin') {
+                setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
+            }
         }
-
+        
         window.onload = () => sync();
     </script>
 </body>
