@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Guild Tracker - Premium Checker</title>
-    <!-- Tailwind CSS & Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -16,25 +15,19 @@
             color: #1e293b;
             min-height: 100vh;
         }
-        
         .soft-card {
             background: #ffffff;
             border: 1px solid #e2e8f0;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
         }
-
         .modal-active { display: flex !important; }
-        
         .btn-loading { pointer-events: none; position: relative; color: transparent !important; }
         .btn-loading::after {
             content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px;
             margin-left: -8px; margin-top: -8px; border: 2px solid currentColor; border-top-color: transparent;
             border-radius: 50%; animation: spin 0.6s linear infinite;
         }
-        
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -42,7 +35,6 @@
 </head>
 <body class="pb-32">
 
-    <!-- Header -->
     <header class="bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200 shadow-sm">
         <div class="max-w-md mx-auto px-4 py-1.5 flex justify-between items-center">
             <div class="flex items-center gap-2">
@@ -51,10 +43,9 @@
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                     </span>
-                    <span id="syncText" class="uppercase tracking-widest">Sync Active</span>
+                    <span id="syncText" class="uppercase tracking-widest">Connecting...</span>
                 </div>
             </div>
-            
             <div class="flex items-center gap-1.5">
                 <button id="adminToggleBtn" onclick="openAdminModal()" class="px-2 py-0.5 rounded-lg text-[10px] font-semibold border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-all flex items-center gap-1">
                     <i id="adminIcon" data-lucide="lock" class="w-2.5 h-2.5"></i>
@@ -69,37 +60,56 @@
     </header>
 
     <main class="max-w-md mx-auto p-3 space-y-2.5">
-        
-        <!-- Dashboard -->
         <div class="soft-card p-4 rounded-2xl relative overflow-hidden">
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest block mb-0.5">Weekly Treasury</span>
-                    <div class="flex items-baseline gap-1">
-                        <span class="text-3xl font-bold text-slate-800 tracking-tight" id="totalGoldDisplay">0</span>
-                        <span class="text-sm font-semibold text-indigo-500">G</span>
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Weekly Treasury</span>
+                        <button id="editGoldRateBtn" onclick="openEditGoldModal()" class="px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 transition-all flex items-center gap-1 shadow-sm hidden" title="Edit Gold Rates">
+                            <i data-lucide="settings-2" class="w-3 h-3"></i>
+                            <span class="text-[9px] font-bold uppercase tracking-wide">Edit</span>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-emerald-50/50 border border-emerald-100 rounded-xl p-2.5">
+                            <div class="flex items-center gap-1 mb-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span class="text-[9px] font-bold text-emerald-700 uppercase tracking-widest">Main</span>
+                                <span class="text-[9px] font-bold text-emerald-600" id="mainRateLabel">150</span>
+                            </div>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-xl font-bold text-slate-800 tracking-tight" id="mainGoldDisplay">0</span>
+                                <span class="text-[10px] font-semibold text-emerald-500">G</span>
+                            </div>
+                            <div class="text-[9px] font-bold text-emerald-600 mt-0.5">
+                                <span id="mainDoneCount">0</span> / <span id="totalCount1" class="text-slate-400">0</span>
+                            </div>
+                        </div>
+                        <div class="bg-sky-50/50 border border-sky-100 rounded-xl p-2.5">
+                            <div class="flex items-center gap-1 mb-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                                <span class="text-[9px] font-bold text-sky-700 uppercase tracking-widest">Alt</span>
+                                <span class="text-[9px] font-bold text-sky-600" id="altRateLabel">75</span>
+                            </div>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-xl font-bold text-slate-800 tracking-tight" id="altGoldDisplay">0</span>
+                                <span class="text-[10px] font-semibold text-sky-500">G</span>
+                            </div>
+                            <div class="text-[9px] font-bold text-sky-600 mt-0.5">
+                                <span id="altDoneCount">0</span> / <span id="totalCount2" class="text-slate-400">0</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-xl text-center">
+                <div class="bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-xl text-center ml-2 shrink-0">
                     <div class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0">Quota</div>
                     <div class="text-xs font-bold text-slate-700">
                         <span id="doneCount" class="text-emerald-600">0</span> / <span id="totalCount" class="text-slate-400">0</span>
                     </div>
                 </div>
             </div>
-            
-            <div class="relative">
-                <div class="flex justify-between text-[9px] text-slate-500 font-bold uppercase mb-1 px-1">
-                    <span>Progress</span>
-                    <span id="percentText" class="text-indigo-600">0%</span>
-                </div>
-                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div id="progressBar" class="bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out shadow-sm" style="width: 0%"></div>
-                </div>
-            </div>
         </div>
 
-        <!-- Announcement -->
         <div id="announceBox" class="soft-card p-3 rounded-2xl bg-amber-50 border-amber-200 hidden animate-in fade-in duration-300">
             <div class="flex justify-between items-start gap-3">
                 <div class="flex-1">
@@ -113,30 +123,27 @@
                     <button onclick="copyAnnouncement()" class="p-1.5 bg-white border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-100 active:scale-90 transition-all shadow-sm">
                         <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                     </button>
-                    <button id="editAnnounceBtn" onclick="openEditAnnounceModal()" class="p-1.5 bg-white border border-amber-200 text-slate-400 rounded-lg hover:bg-amber-100 active:scale-90 transition-all shadow-sm hidden">
+                    <button id="editAnnounceBtn" onclick="openEditAnnounceModal()" class="p-1.5 bg-white border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-100 active:scale-90 transition-all shadow-sm hidden" title="Edit Suffix">
                         <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Search -->
         <div class="relative group">
             <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
             <input type="text" id="searchInput" oninput="render()" placeholder="Search member name..." 
                 class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white outline-none text-xs transition-all focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder:text-slate-400">
         </div>
 
-        <!-- List -->
         <div id="memberList" class="space-y-1 min-h-[150px]">
             <div class="py-10 text-center text-slate-400">
                 <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 opacity-20 text-indigo-500"></i>
-                <p class="text-[10px] font-medium uppercase tracking-widest">Updating Database...</p>
+                <p class="text-[10px] font-medium uppercase tracking-widest">Connecting to Firebase...</p>
             </div>
         </div>
     </main>
 
-    <!-- Bottom Bar -->
     <div class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-lg border-t border-slate-200 p-2 pb-6 z-40">
         <div class="max-w-md mx-auto flex items-center gap-1.5">
             <div class="relative flex-1">
@@ -154,9 +161,8 @@
         </div>
     </div>
 
-    <!-- Modal: Reset Confirmation (Enhanced with Preview) -->
     <div id="modal-reset" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div class="bg-white rounded-[2rem] w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 overflow-hidden">
+        <div class="bg-white rounded-[2rem] w-full max-w-sm p-6 shadow-2xl overflow-hidden">
             <div class="flex flex-col items-center text-center">
                 <div class="w-14 h-14 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
                     <i data-lucide="refresh-cw" class="w-7 h-7"></i>
@@ -164,7 +170,6 @@
                 <h2 class="text-xl font-bold text-slate-800">End Current Round?</h2>
                 <p class="text-[11px] text-slate-400 mt-1 uppercase tracking-widest font-bold">Reset Confirmation</p>
             </div>
-
             <div class="mt-6 space-y-4">
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <div class="flex justify-between text-[10px] font-bold uppercase text-slate-400 mb-2">
@@ -183,7 +188,6 @@
                 </div>
                 <p class="text-[10px] text-center text-slate-400 px-4">All donation records will be cleared for the new week.</p>
             </div>
-
             <div class="flex gap-3 mt-6">
                 <button onclick="handleResetAction()" id="btnResetConfirm" class="flex-1 bg-red-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-red-100 active:scale-95 transition-all">CONFIRM RESET</button>
                 <button onclick="toggleModal('modal-reset', false)" class="flex-1 bg-slate-100 text-slate-500 py-3 rounded-xl font-bold text-xs">CANCEL</button>
@@ -191,9 +195,8 @@
         </div>
     </div>
 
-    <!-- Other Modals -->
     <div id="modal-admin" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-        <div class="bg-white rounded-[2rem] w-full max-w-xs p-8 shadow-2xl animate-in zoom-in-95 text-center">
+        <div class="bg-white rounded-[2rem] w-full max-w-xs p-8 shadow-2xl text-center">
             <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 mx-auto"><i data-lucide="lock" class="w-6 h-6"></i></div>
             <h2 class="text-xl font-bold text-slate-800">Admin Access</h2>
             <input type="password" id="adminPasswordInput" placeholder="••••" maxlength="4" class="w-full px-4 py-4 mt-4 rounded-2xl border border-slate-100 bg-slate-50 outline-none focus:ring-4 focus:ring-indigo-500/10 text-center text-3xl font-mono">
@@ -202,8 +205,30 @@
         </div>
     </div>
 
+    <div id="modal-gold-edit" class="fixed inset-0 z-[110] hidden items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl text-center">
+            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-100"><i data-lucide="coins" class="w-6 h-6"></i></div>
+            <h2 class="text-base font-bold text-slate-800 mb-1">Gold Rates</h2>
+            <p class="text-[11px] text-slate-400 mb-4">This applies to everyone in the guild.</p>
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <div>
+                    <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Main</label>
+                    <input id="goldRateInput" type="number" min="1" class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-center font-bold" />
+                </div>
+                <div>
+                    <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Alt</label>
+                    <input id="goldAltRateInput" type="number" min="1" class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm text-center font-bold" />
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="saveGoldRate()" class="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-xs">SAVE</button>
+                <button onclick="toggleModal('modal-gold-edit', false)" class="flex-1 bg-slate-100 text-slate-500 py-2.5 rounded-xl font-bold text-xs">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-announce-edit" class="fixed inset-0 z-[110] hidden items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl animate-in zoom-in-95 text-center">
+        <div class="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl text-center">
             <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-100"><i data-lucide="edit-3" class="w-6 h-6"></i></div>
             <h2 class="text-base font-bold text-slate-800 mb-1">Edit Suffix</h2>
             <textarea id="announceSuffixInput" class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-amber-500/20 text-xs mb-4 min-h-[80px] resize-none"></textarea>
@@ -215,7 +240,7 @@
     </div>
 
     <div id="modal-error" class="fixed inset-0 z-[110] hidden items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl w-full max-w-xs p-6 text-center shadow-2xl animate-in zoom-in-95">
+        <div class="bg-white rounded-3xl w-full max-w-xs p-6 text-center shadow-2xl">
             <div id="modalIconContainer" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 border"><i id="modalIcon" data-lucide="alert-circle" class="w-6 h-6"></i></div>
             <h2 id="modalTitle" class="text-base font-bold text-slate-800 mb-1">Notice</h2>
             <p id="errorMessage" class="text-xs text-slate-500 mb-6 px-2"></p>
@@ -224,7 +249,7 @@
     </div>
 
     <div id="modal-delete" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl w-full max-w-xs p-8 text-center animate-in zoom-in-95">
+        <div class="bg-white rounded-3xl w-full max-w-xs p-8 text-center">
             <h2 class="text-base font-bold text-slate-800 mb-1">Remove Member?</h2>
             <p id="deleteNameDisplay" class="text-sm font-bold text-indigo-600 mb-8"></p>
             <div class="flex gap-3">
@@ -244,126 +269,231 @@
         </div>
     </div>
 
-    <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOUgK9w6c0KuPywiufQUmYSRxqEkSWrdqozn5QL3iYeryuegQ_q75ffW9hMFSX-MhP/exec"; 
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch, serverTimestamp }
+            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCKoogVSDXHx7b4R5Y-Wsk7YrkQrPvrtbM",
+            authDomain: "donate-f809b.firebaseapp.com",
+            projectId: "donate-f809b",
+            storageBucket: "donate-f809b.firebasestorage.app",
+            messagingSenderId: "22768603977",
+            appId: "1:22768603977:web:53946df2e56a78194bc098"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const GUILD = 'main';
+        const membersCol = collection(db, 'guild', GUILD, 'members');
+        const donationsCol = collection(db, 'guild', GUILD, 'donations');
+        const settingsRef = doc(db, 'guild', GUILD, 'config', 'settings');
+
         const ADMIN_ROLES = { "1899": "AUY", "0634": "AOM", "0023": "Ver", "2300": "Dry" };
         const DEFAULT_SUFFIX = " please donate 150g within the scheduled time.";
-        
+
         let members = [];
-        let donations = []; 
-        let isSyncing = false;
+        let donations = [];
+        let config = { goldPerMember: 150, goldPerAlt: 75, announceSuffix: DEFAULT_SUFFIX };
         let isAdmin = localStorage.getItem('guildTrackerIsAdmin') === 'true';
         let checkerName = localStorage.getItem('guildTrackerCheckerName') || '';
-        let announceSuffix = localStorage.getItem('guildTrackerAnnounceSuffix') || DEFAULT_SUFFIX;
 
-        async function callGAS(params) {
-            return new Promise((resolve, reject) => {
-                const cbName = 'cb' + Math.floor(Math.random() * 1000000);
-                const script = document.createElement('script');
-                const timeout = setTimeout(() => { cleanup(); reject("Timeout"); }, 30000);
-                window[cbName] = (data) => { cleanup(); resolve(data); };
-                const cleanup = () => { clearTimeout(timeout); delete window[cbName]; if(document.body.contains(script)) document.body.removeChild(script); }
-                script.src = `${SCRIPT_URL}?${new URLSearchParams({ ...params, callback: cbName })}`;
-                script.onerror = () => { cleanup(); reject("Network Error"); };
-                document.body.appendChild(script);
-            });
-        }
-
-        async function sync(action = 'getAllData', payload = {}) {
-            if (isSyncing) return;
-            setLoadingState(true);
-            try {
-                const data = await callGAS({ action, ...payload });
-                if (data.members) members = data.members;
-                if (data.donations) donations = data.donations;
-                render();
-            } catch (e) { console.error(e); showError("Sync failed."); } finally { setLoadingState(false); }
-        }
-
-        function setLoadingState(state) {
-            isSyncing = state;
+        function setSyncStatus(text, color = 'slate') {
             const el = document.getElementById('syncText');
-            if (el) {
-                el.innerText = state ? "Syncing..." : "Sync Active";
-                el.parentElement.className = state ? "text-[9px] font-bold text-orange-500 flex items-center gap-1.5 transition-all" : "text-[9px] font-bold text-slate-400 flex items-center gap-1.5 transition-all";
+            const parent = document.getElementById('statusText');
+            if (!el) return;
+            el.innerText = text;
+            const colorMap = { slate: 'text-slate-400', emerald: 'text-emerald-500', orange: 'text-orange-500', red: 'text-red-500' };
+            parent.className = `text-[9px] font-bold ${colorMap[color] || colorMap.slate} flex items-center gap-1.5 transition-all`;
+        }
+
+        function showError(msg, isSuccess = false) {
+            const title = document.getElementById('modalTitle');
+            const container = document.getElementById('modalIconContainer');
+            const icon = document.getElementById('modalIcon');
+            title.innerText = isSuccess ? "Success" : "Notice";
+            if (isSuccess) {
+                container.className = "w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100";
+                icon.setAttribute('data-lucide', 'check-circle-2');
+            } else {
+                container.className = "w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100";
+                icon.setAttribute('data-lucide', 'alert-circle');
             }
+            document.getElementById('errorMessage').innerText = msg;
+            toggleModal('modal-error', true);
             lucide.createIcons();
         }
 
-        function openAdminModal() {
-            if (isAdmin) toggleModal('modal-logout', true);
-            else { document.getElementById('adminPasswordInput').value = ''; toggleModal('modal-admin', true); }
+        function toggleModal(id, show) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.toggle('hidden', !show);
+                el.classList.toggle('modal-active', show);
+            }
         }
 
+        function copyToClipboard(text, successMsg) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try { if (document.execCommand('copy')) showError(successMsg, true); } catch (err) {}
+            document.body.removeChild(textArea);
+        }
+
+        // ===== Admin =====
+        function openAdminModal() {
+            if (isAdmin) toggleModal('modal-logout', true);
+            else {
+                document.getElementById('adminPasswordInput').value = '';
+                toggleModal('modal-admin', true);
+            }
+        }
         function checkAdminPassword() {
             const pass = document.getElementById('adminPasswordInput').value;
             if (ADMIN_ROLES[pass]) {
-                isAdmin = true; checkerName = ADMIN_ROLES[pass];
+                isAdmin = true;
+                checkerName = ADMIN_ROLES[pass];
                 localStorage.setItem('guildTrackerIsAdmin', 'true');
                 localStorage.setItem('guildTrackerCheckerName', checkerName);
-                toggleModal('modal-admin', false); render();
+                toggleModal('modal-admin', false);
+                render();
             } else showError("Incorrect Password");
         }
-
         function logoutAdmin() {
-            isAdmin = false; checkerName = '';
+            isAdmin = false;
+            checkerName = '';
             localStorage.setItem('guildTrackerIsAdmin', 'false');
             localStorage.removeItem('guildTrackerCheckerName');
-            toggleModal('modal-logout', false); render();
+            toggleModal('modal-logout', false);
+            render();
         }
-
         function updateAdminUI() {
             const adminBtn = document.getElementById('adminToggleBtn');
             const resetBtn = document.getElementById('resetBtn');
             const editAnnounceBtn = document.getElementById('editAnnounceBtn');
+            const editGoldRateBtn = document.getElementById('editGoldRateBtn');
             const icon = document.getElementById('adminIcon');
-            
             if (isAdmin) {
                 adminBtn.className = "px-2 py-0.5 rounded-lg text-[10px] font-semibold border border-indigo-200 bg-indigo-50 text-indigo-600 flex items-center gap-1 transition-all ring-2 ring-indigo-500/10";
                 document.getElementById('adminBtnText').innerText = `ADMIN (${checkerName})`;
-                resetBtn.disabled = false; editAnnounceBtn.classList.remove('hidden');
+                resetBtn.disabled = false;
+                editAnnounceBtn.classList.remove('hidden');
+                editGoldRateBtn.classList.remove('hidden');
                 icon.setAttribute('data-lucide', 'unlock');
             } else {
                 adminBtn.className = "px-2 py-0.5 rounded-lg text-[10px] font-semibold border border-slate-200 bg-white text-slate-500 flex items-center gap-1 transition-all";
                 document.getElementById('adminBtnText').innerText = "ADMIN";
-                resetBtn.disabled = true; editAnnounceBtn.classList.add('hidden');
+                resetBtn.disabled = true;
+                editAnnounceBtn.classList.add('hidden');
+                editGoldRateBtn.classList.add('hidden');
                 icon.setAttribute('data-lucide', 'lock');
             }
             lucide.createIcons();
         }
 
-        function openEditAnnounceModal() { if (!isAdmin) return; document.getElementById('announceSuffixInput').value = announceSuffix; toggleModal('modal-announce-edit', true); }
-        function saveAnnouncementSuffix() { 
-            const newSuffix = document.getElementById('announceSuffixInput').value; 
-            announceSuffix = newSuffix; localStorage.setItem('guildTrackerAnnounceSuffix', newSuffix); 
-            toggleModal('modal-announce-edit', false); render(); showError("Updated", true); 
+        // ===== Gold Rate =====
+        function openEditGoldModal() {
+            if (!isAdmin) return;
+            document.getElementById('goldRateInput').value = config.goldPerMember;
+            document.getElementById('goldAltRateInput').value = config.goldPerAlt;
+            toggleModal('modal-gold-edit', true);
+        }
+        async function saveGoldRate() {
+            const val = parseInt(document.getElementById('goldRateInput').value, 10);
+            const altVal = parseInt(document.getElementById('goldAltRateInput').value, 10);
+            if (!val || val <= 0 || !altVal || altVal <= 0) { showError("Enter valid numbers"); return; }
+            try {
+                await setDoc(settingsRef, { goldPerMember: val, goldPerAlt: altVal }, { merge: true });
+                toggleModal('modal-gold-edit', false);
+                showError("Updated", true);
+            } catch (e) { console.error(e); showError("Save failed"); }
         }
 
+        // ===== Announcement =====
+        function openEditAnnounceModal() {
+            if (!isAdmin) return;
+            document.getElementById('announceSuffixInput').value = config.announceSuffix || DEFAULT_SUFFIX;
+            toggleModal('modal-announce-edit', true);
+        }
+        async function saveAnnouncementSuffix() {
+            const newSuffix = document.getElementById('announceSuffixInput').value;
+            try {
+                await setDoc(settingsRef, { announceSuffix: newSuffix }, { merge: true });
+                toggleModal('modal-announce-edit', false);
+                showError("Updated", true);
+            } catch (e) { console.error(e); showError("Save failed"); }
+        }
+
+        // ===== Members =====
         async function addMemberAction() {
-            const input = document.getElementById('quickInput'); const name = input.value.trim();
+            const input = document.getElementById('quickInput');
+            const name = input.value.trim();
             if (!name) return;
             if (members.some(m => m.name.toLowerCase() === name.toLowerCase())) return showError(`"${name}" exists`);
-            const btn = document.getElementById('btnAddQuick'); btn.classList.add('btn-loading');
-            await sync('addMember', { name }); input.value = ''; btn.classList.remove('btn-loading');
+            const btn = document.getElementById('btnAddQuick');
+            btn.classList.add('btn-loading');
+            try {
+                await setDoc(doc(membersCol), { name, missed: 0, createdAt: serverTimestamp() });
+                input.value = '';
+            } catch (e) { console.error(e); showError("Add failed"); }
+            finally { btn.classList.remove('btn-loading'); }
         }
 
-        async function handleToggle(id) {
+        // ===== Toggle Donation =====
+        async function handleToggle(id, type) {
             if (!isAdmin) return showError("Admin only 🔒");
-            const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('btn-loading');
-            await sync('toggleDonation', { memberId: id, checkerName: checkerName });
+            const btn = document.getElementById(`btn-${type}-${id}`);
+            if (btn) btn.classList.add('btn-loading');
+
+            const docId = `${id}_${type}`;
+            const ref = doc(donationsCol, docId);
+            const isCurrentlyDone = btn && (btn.classList.contains('bg-emerald-600') || btn.classList.contains('bg-sky-600'));
+
+            try {
+                if (isCurrentlyDone) {
+                    await deleteDoc(ref);
+                } else {
+                    await setDoc(ref, { memberId: id, type, checker: checkerName, at: serverTimestamp() });
+                }
+            } catch (e) {
+                console.error("[Toggle Error]", e.code, e.message, e);
+                showError(`Update failed: ${e.code || e.message}`);
+                if (btn) btn.classList.remove('btn-loading');
+            }
         }
 
-        // ฟังก์ชัน Reset ที่รองรับการ Preview ก่อนกดยืนยัน
-        function confirmReset() { 
+        function confirmDelete(id, name) {
             if (!isAdmin) return;
-            
+            document.getElementById('deleteNameDisplay').innerText = name;
+            const btn = document.getElementById('btnDeleteConfirm');
+            btn.onclick = async () => {
+                btn.classList.add('btn-loading');
+                try {
+                    const batch = writeBatch(db);
+                    batch.delete(doc(membersCol, id));
+                    batch.delete(doc(donationsCol, `${id}_main`));
+                    batch.delete(doc(donationsCol, `${id}_alt`));
+                    await batch.commit();
+                    toggleModal('modal-delete', false);
+                } catch (e) { console.error(e); showError("Delete failed"); }
+                finally { btn.classList.remove('btn-loading'); }
+            };
+            toggleModal('modal-delete', true);
+        }
+
+        // ===== Reset =====
+        function confirmReset() {
+            if (!isAdmin) return;
             const paidIds = new Set(donations.map(d => String(d.memberId)));
             const unpaidMembers = members.filter(m => !paidIds.has(String(m.id)));
             const unpaidNames = unpaidMembers.map(m => m.name);
-            
-            document.getElementById('resetSummaryStats').innerText = `${donations.length} Paid / ${members.length} Total`;
+
+            document.getElementById('resetSummaryStats').innerText = `${paidIds.size} Paid / ${members.length} Total`;
             const listEl = document.getElementById('resetMissedList');
-            
+
             if (unpaidNames.length > 0) {
                 listEl.innerText = unpaidNames.join(', ');
                 listEl.className = "text-[10px] text-red-600 bg-white p-2 rounded-lg border border-red-50 max-h-24 overflow-y-auto leading-relaxed font-bold";
@@ -371,67 +501,85 @@
                 listEl.innerText = "Everyone has paid! No missed records will be added.";
                 listEl.className = "text-[10px] text-emerald-600 bg-white p-2 rounded-lg border border-emerald-50 max-h-24 overflow-y-auto leading-relaxed italic";
             }
-            
-            toggleModal('modal-reset', true); 
+            toggleModal('modal-reset', true);
         }
 
         async function handleResetAction() {
             if (!isAdmin) return;
-            const btn = document.getElementById('btnResetConfirm'); btn.classList.add('btn-loading');
-            await sync('resetAll');
-            toggleModal('modal-reset', false); btn.classList.remove('btn-loading');
+            const btn = document.getElementById('btnResetConfirm');
+            btn.classList.add('btn-loading');
+            try {
+                const paidIds = new Set(donations.map(d => String(d.memberId)));
+                const batch = writeBatch(db);
+                donations.forEach(d => batch.delete(doc(donationsCol, d.id)));
+                members.forEach(m => {
+                    if (!paidIds.has(String(m.id))) {
+                        batch.update(doc(membersCol, m.id), { missed: (m.missed || 0) + 1 });
+                    }
+                });
+                await batch.commit();
+                toggleModal('modal-reset', false);
+            } catch (e) { console.error(e); showError("Reset failed"); }
+            finally { btn.classList.remove('btn-loading'); }
         }
 
-        function confirmDelete(id, name) {
-            if (!isAdmin) return;
-            document.getElementById('deleteNameDisplay').innerText = name;
-            const btn = document.getElementById('btnDeleteConfirm');
-            btn.onclick = async () => { btn.classList.add('btn-loading'); await sync('deleteMember', { id }); toggleModal('modal-delete', false); btn.classList.remove('btn-loading'); };
-            toggleModal('modal-delete', true);
-        }
-
+        // ===== Copy =====
         function copySingleName(name) { copyToClipboard(name, `Copied`); }
-        function copyToClipboard(text, successMsg) {
-            const textArea = document.createElement("textarea"); textArea.value = text; document.body.appendChild(textArea); textArea.select();
-            try { if (document.execCommand('copy')) showError(successMsg, true); } catch (err) { }
-            document.body.removeChild(textArea);
+        function copyAnnouncement() {
+            const text = document.getElementById('announceText').innerText;
+            if (text) copyToClipboard(text, "Copied");
         }
-        function copyAnnouncement() { const text = document.getElementById('announceText').innerText; if (text) copyToClipboard(text, "Copied"); }
-        async function pasteFromClipboard() { try { const text = await navigator.clipboard.readText(); document.getElementById('quickInput').value = text; } catch (err) { } }
-
-        function showError(msg, isSuccess = false) {
-            const title = document.getElementById('modalTitle'); const container = document.getElementById('modalIconContainer'); const icon = document.getElementById('modalIcon');
-            title.innerText = isSuccess ? "Success" : "Notice";
-            if (isSuccess) { container.className = "w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100"; icon.setAttribute('data-lucide', 'check-circle-2'); }
-            else { container.className = "w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100"; icon.setAttribute('data-lucide', 'alert-circle'); }
-            document.getElementById('errorMessage').innerText = msg; toggleModal('modal-error', true); lucide.createIcons();
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('quickInput').value = text;
+            } catch (err) {}
         }
 
+        // ===== Render =====
         function render() {
             updateAdminUI();
-            const list = document.getElementById('memberList'); const search = document.getElementById('searchInput').value.toLowerCase();
+            const list = document.getElementById('memberList');
+            const search = document.getElementById('searchInput').value.toLowerCase();
             list.innerHTML = '';
-            const donationMap = {}; donations.forEach(d => { donationMap[String(d.memberId)] = d.checker || "AUY"; });
-            const doneSet = new Set(Object.keys(donationMap));
+
+            const mainMap = {}, altMap = {};
+            donations.forEach(d => {
+                const key = String(d.memberId);
+                if (d.type === 'alt') altMap[key] = d.checker || "AUY";
+                else mainMap[key] = d.checker || "AUY";
+            });
+            const doneSet = new Set([...Object.keys(mainMap), ...Object.keys(altMap)]);
             const filtered = members.filter(m => m.name.toLowerCase().includes(search));
             const unpaidNames = members.filter(m => !doneSet.has(String(m.id))).map(m => m.name);
-            if (unpaidNames.length > 0) {
-                document.getElementById('announceText').innerText = unpaidNames.join(',') + announceSuffix;
-                document.getElementById('announceBox').classList.remove('hidden');
-            } else document.getElementById('announceBox').classList.add('hidden');
 
+            if (unpaidNames.length > 0) {
+                document.getElementById('announceText').innerText = unpaidNames.join(',') + (config.announceSuffix || DEFAULT_SUFFIX);
+                document.getElementById('announceBox').classList.remove('hidden');
+            } else {
+                document.getElementById('announceBox').classList.add('hidden');
+            }
+
+            // Sort: ย้ายลงล่างเฉพาะเมื่อจ่ายครบ MAIN + ALT
             filtered.sort((a, b) => {
-                const aDone = doneSet.has(String(a.id)); const bDone = doneSet.has(String(b.id));
+                const aDone = mainMap.hasOwnProperty(String(a.id)) && altMap.hasOwnProperty(String(a.id));
+                const bDone = mainMap.hasOwnProperty(String(b.id)) && altMap.hasOwnProperty(String(b.id));
                 if (aDone === bDone) return a.name.localeCompare(b.name);
                 return aDone ? 1 : -1;
             });
-            
+
             filtered.forEach(m => {
-                const mid = String(m.id); const isDone = doneSet.has(mid); const checker = donationMap[mid] || "";
+                const mid = String(m.id);
+                const isMainDone = mainMap.hasOwnProperty(mid);
+                const isAltDone = altMap.hasOwnProperty(mid);
+                const isDone = isMainDone || isAltDone;
+                const mainChecker = mainMap[mid] || "";
+                const altChecker = altMap[mid] || "";
+                const statusLabel = isMainDone && isAltDone ? 'Paid (Main+Alt)' : isMainDone ? 'Paid via Main' : isAltDone ? 'Paid via Alt' : 'Pending';
                 const missedCount = m.missed || 0;
                 const card = document.createElement('div');
                 card.className = `p-1 px-3.5 rounded-xl flex items-center justify-between transition-all duration-200 border ${isDone ? 'bg-emerald-50/30 border-emerald-100' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm'}`;
-                const deleteBtnHtml = isAdmin ? `<button onclick="confirmDelete('${m.id}', '${m.name}')" class="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>` : ``;
+                const deleteBtnHtml = isAdmin ? `<button onclick="confirmDelete('${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>` : ``;
                 card.innerHTML = `
                 <div class="flex items-center gap-2.5 overflow-hidden">
                     <div class="relative shrink-0">
@@ -439,28 +587,92 @@
                         ${isDone ? `<div class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-sm"><i data-lucide="check" class="w-2 h-2 text-white" stroke-width="3.5"></i></div>` : ''}
                     </div>
                     <div class="truncate">
-                        <div class="flex items-center gap-1.5 leading-none mb-0.5"><span class="font-bold truncate text-[11px] ${isDone ? 'text-slate-800' : 'text-slate-600'}">${m.name}</span><button onclick="copySingleName('${m.name}')" class="p-0.5 text-slate-300 hover:text-indigo-500"><i data-lucide="copy" class="w-2.5 h-2.5"></i></button></div>
-                        <div class="flex items-center gap-2"><span class="text-[8px] font-medium tracking-tight ${isDone ? 'text-emerald-600' : 'text-slate-400'}">${isDone ? 'Paid Member' : 'Pending'}</span>${missedCount > 0 ? `<span class="text-[8px] font-bold text-red-500 bg-red-50 px-1 rounded border border-red-100">Missed: ${missedCount}</span>` : ''}</div>
+                        <div class="flex items-center gap-1.5 leading-none mb-0.5"><span class="font-bold truncate text-[11px] ${isDone ? 'text-slate-800' : 'text-slate-600'}">${m.name}</span><button onclick="copySingleName('${m.name.replace(/'/g, "\\'")}')" class="p-0.5 text-slate-300 hover:text-indigo-500"><i data-lucide="copy" class="w-2.5 h-2.5"></i></button></div>
+                        <div class="flex items-center gap-2"><span class="text-[8px] font-medium tracking-tight ${isDone ? 'text-emerald-600' : 'text-slate-400'}">${statusLabel}</span>${missedCount > 0 ? `<span class="text-[8px] font-bold text-red-500 bg-red-50 px-1 rounded border border-red-100">Missed: ${missedCount}</span>` : ''}</div>
                     </div>
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <button id="btn-${m.id}" onclick="handleToggle('${m.id}')" class="w-24 py-1 rounded-lg text-[9px] font-bold border flex items-center justify-center gap-1 transition-all ${isDone ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'} ${!isAdmin ? 'opacity-30' : 'active:scale-95'}">${isDone ? `<i data-lucide="check-circle-2" class="w-3 h-3"></i><span>PAID (${checker})</span>` : 'UNPAID'}</button>
+                <div class="flex items-center gap-1">
+                    <button id="btn-main-${m.id}" onclick="handleToggle('${m.id}', 'main')" class="w-16 py-1 rounded-lg text-[8px] font-bold border flex items-center justify-center gap-0.5 transition-all ${isMainDone ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'} ${!isAdmin ? 'opacity-30' : 'active:scale-95'}">${isMainDone ? `<i data-lucide="check" class="w-2.5 h-2.5"></i><span>${mainChecker}</span>` : `<span>MAIN</span><span class="text-[7px] opacity-70">${config.goldPerMember}</span>`}</button>
+                    <button id="btn-alt-${m.id}" onclick="handleToggle('${m.id}', 'alt')" class="w-16 py-1 rounded-lg text-[8px] font-bold border flex items-center justify-center gap-0.5 transition-all ${isAltDone ? 'bg-sky-600 text-white border-sky-500 shadow-sm shadow-sky-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'} ${!isAdmin ? 'opacity-30' : 'active:scale-95'}">${isAltDone ? `<i data-lucide="check" class="w-2.5 h-2.5"></i><span>${altChecker}</span>` : `<span>ALT</span><span class="text-[7px] opacity-70">${config.goldPerAlt}</span>`}</button>
                     ${deleteBtnHtml}
                 </div>`;
                 list.appendChild(card);
             });
-            
+
             const doneCount = members.filter(m => doneSet.has(String(m.id))).length;
+            const mainDoneCount = members.filter(m => mainMap.hasOwnProperty(String(m.id))).length;
+            const altDoneCount = members.filter(m => altMap.hasOwnProperty(String(m.id))).length;
             document.getElementById('totalCount').innerText = members.length;
+            document.getElementById('totalCount1').innerText = members.length;
+            document.getElementById('totalCount2').innerText = members.length;
             document.getElementById('doneCount').innerText = doneCount;
-            document.getElementById('totalGoldDisplay').innerText = (doneCount * 150).toLocaleString();
-            document.getElementById('percentText').innerText = `${members.length ? Math.round((doneCount/members.length)*100) : 0}%`;
-            document.getElementById('progressBar').style.width = `${members.length ? (doneCount/members.length)*100 : 0}%`;
+            document.getElementById('mainDoneCount').innerText = mainDoneCount;
+            document.getElementById('altDoneCount').innerText = altDoneCount;
+            document.getElementById('mainGoldDisplay').innerText = (mainDoneCount * config.goldPerMember).toLocaleString();
+            document.getElementById('altGoldDisplay').innerText = (altDoneCount * config.goldPerAlt).toLocaleString();
+            document.getElementById('mainRateLabel').innerText = config.goldPerMember;
+            document.getElementById('altRateLabel').innerText = config.goldPerAlt;
             lucide.createIcons();
         }
 
-        function toggleModal(id, show) { const el = document.getElementById(id); if (el) { el.classList.toggle('hidden', !show); el.classList.toggle('modal-active', show); } }
-        window.onload = () => sync();
+        // ===== Realtime =====
+        let initialLoad = { members: false, donations: false, config: false };
+        function checkReady() {
+            if (initialLoad.members && initialLoad.donations && initialLoad.config) {
+                setSyncStatus('Sync Active', 'emerald');
+            }
+        }
+
+        onSnapshot(membersCol, (snap) => {
+            members = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            initialLoad.members = true;
+            render();
+            checkReady();
+        }, (err) => {
+            console.error(err);
+            setSyncStatus('Sync Error', 'red');
+            showError("Cannot connect to Firestore. Check Rules.");
+        });
+
+        onSnapshot(donationsCol, (snap) => {
+            donations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            initialLoad.donations = true;
+            render();
+            checkReady();
+        });
+
+        onSnapshot(settingsRef, (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                config = {
+                    goldPerMember: Number(data.goldPerMember) || 150,
+                    goldPerAlt: Number(data.goldPerAlt) || 75,
+                    announceSuffix: data.announceSuffix || DEFAULT_SUFFIX
+                };
+            }
+            initialLoad.config = true;
+            render();
+            checkReady();
+        });
+
+        // ===== Expose ให้ onclick ใน HTML =====
+        window.openAdminModal = openAdminModal;
+        window.checkAdminPassword = checkAdminPassword;
+        window.logoutAdmin = logoutAdmin;
+        window.openEditGoldModal = openEditGoldModal;
+        window.saveGoldRate = saveGoldRate;
+        window.openEditAnnounceModal = openEditAnnounceModal;
+        window.saveAnnouncementSuffix = saveAnnouncementSuffix;
+        window.addMemberAction = addMemberAction;
+        window.handleToggle = handleToggle;
+        window.confirmDelete = confirmDelete;
+        window.confirmReset = confirmReset;
+        window.handleResetAction = handleResetAction;
+        window.copySingleName = copySingleName;
+        window.copyAnnouncement = copyAnnouncement;
+        window.pasteFromClipboard = pasteFromClipboard;
+        window.toggleModal = toggleModal;
+        window.render = render;
     </script>
 </body>
 </html>
