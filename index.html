@@ -209,15 +209,15 @@
         <div class="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl text-center">
             <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-100"><i data-lucide="coins" class="w-6 h-6"></i></div>
             <h2 class="text-base font-bold text-slate-800 mb-1">Gold Rates</h2>
-            <p class="text-[11px] text-slate-400 mb-4">This applies to everyone in the guild.</p>
+            <p class="text-[11px] text-slate-400 mb-4">ใส่ 0 เพื่อซ่อนปุ่มช่องนั้น</p>
             <div class="grid grid-cols-2 gap-2 mb-4">
                 <div>
                     <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Main</label>
-                    <input id="goldRateInput" type="number" min="1" class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-center font-bold" />
+                    <input id="goldRateInput" type="number" min="0" class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm text-center font-bold" />
                 </div>
                 <div>
                     <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Alt</label>
-                    <input id="goldAltRateInput" type="number" min="1" class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm text-center font-bold" />
+                    <input id="goldAltRateInput" type="number" min="0" class="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-sky-500/20 text-sm text-center font-bold" />
                 </div>
             </div>
             <div class="flex gap-2">
@@ -404,7 +404,8 @@
         async function saveGoldRate() {
             const val = parseInt(document.getElementById('goldRateInput').value, 10);
             const altVal = parseInt(document.getElementById('goldAltRateInput').value, 10);
-            if (!val || val <= 0 || !altVal || altVal <= 0) { showError("Enter valid numbers"); return; }
+            // ✅ ยอมรับ 0 ได้
+            if (isNaN(val) || val < 0 || isNaN(altVal) || altVal < 0) { showError("Enter 0 or positive numbers"); return; }
             try {
                 await setDoc(settingsRef, { goldPerMember: val, goldPerAlt: altVal }, { merge: true });
                 toggleModal('modal-gold-edit', false);
@@ -551,7 +552,13 @@
             });
             const doneSet = new Set([...Object.keys(mainMap), ...Object.keys(altMap)]);
             const filtered = members.filter(m => m.name.toLowerCase().includes(search));
-            const unpaidNames = members.filter(m => !doneSet.has(String(m.id))).map(m => m.name);
+
+            // ✅ แสดงชื่อใน Announcement จนกว่าจะจ่ายครบ MAIN + ALT
+            const unpaidNames = members.filter(m => {
+                const mid = String(m.id);
+                const paidBoth = mainMap.hasOwnProperty(mid) && altMap.hasOwnProperty(mid);
+                return !paidBoth;
+            }).map(m => m.name);
 
             if (unpaidNames.length > 0) {
                 document.getElementById('announceText').innerText = unpaidNames.join(',') + (config.announceSuffix || DEFAULT_SUFFIX);
@@ -568,6 +575,10 @@
                 return aDone ? 1 : -1;
             });
 
+            // ✅ เช็คว่าซ่อนปุ่มไหน
+            const mainHidden = !config.goldPerMember || config.goldPerMember <= 0;
+            const altHidden = !config.goldPerAlt || config.goldPerAlt <= 0;
+
             filtered.forEach(m => {
                 const mid = String(m.id);
                 const isMainDone = mainMap.hasOwnProperty(mid);
@@ -580,6 +591,12 @@
                 const card = document.createElement('div');
                 card.className = `p-1 px-3.5 rounded-xl flex items-center justify-between transition-all duration-200 border ${isDone ? 'bg-emerald-50/30 border-emerald-100' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm'}`;
                 const deleteBtnHtml = isAdmin ? `<button onclick="confirmDelete('${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>` : ``;
+
+                // ✅ สร้างปุ่ม MAIN / ALT แบบมีเงื่อนไข
+                const mainBtnHtml = mainHidden ? '' : `<button id="btn-main-${m.id}" onclick="handleToggle('${m.id}', 'main')" class="w-16 py-1 rounded-lg text-[8px] font-bold border flex items-center justify-center gap-0.5 transition-all ${isMainDone ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'} ${!isAdmin ? 'opacity-30' : 'active:scale-95'}">${isMainDone ? `<i data-lucide="check" class="w-2.5 h-2.5"></i><span>${mainChecker}</span>` : `<span>MAIN</span><span class="text-[7px] opacity-70">${config.goldPerMember}</span>`}</button>`;
+
+                const altBtnHtml = altHidden ? '' : `<button id="btn-alt-${m.id}" onclick="handleToggle('${m.id}', 'alt')" class="w-16 py-1 rounded-lg text-[8px] font-bold border flex items-center justify-center gap-0.5 transition-all ${isAltDone ? 'bg-sky-600 text-white border-sky-500 shadow-sm shadow-sky-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'} ${!isAdmin ? 'opacity-30' : 'active:scale-95'}">${isAltDone ? `<i data-lucide="check" class="w-2.5 h-2.5"></i><span>${altChecker}</span>` : `<span>ALT</span><span class="text-[7px] opacity-70">${config.goldPerAlt}</span>`}</button>`;
+
                 card.innerHTML = `
                 <div class="flex items-center gap-2.5 overflow-hidden">
                     <div class="relative shrink-0">
@@ -592,8 +609,8 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button id="btn-main-${m.id}" onclick="handleToggle('${m.id}', 'main')" class="w-16 py-1 rounded-lg text-[8px] font-bold border flex items-center justify-center gap-0.5 transition-all ${isMainDone ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'} ${!isAdmin ? 'opacity-30' : 'active:scale-95'}">${isMainDone ? `<i data-lucide="check" class="w-2.5 h-2.5"></i><span>${mainChecker}</span>` : `<span>MAIN</span><span class="text-[7px] opacity-70">${config.goldPerMember}</span>`}</button>
-                    <button id="btn-alt-${m.id}" onclick="handleToggle('${m.id}', 'alt')" class="w-16 py-1 rounded-lg text-[8px] font-bold border flex items-center justify-center gap-0.5 transition-all ${isAltDone ? 'bg-sky-600 text-white border-sky-500 shadow-sm shadow-sky-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'} ${!isAdmin ? 'opacity-30' : 'active:scale-95'}">${isAltDone ? `<i data-lucide="check" class="w-2.5 h-2.5"></i><span>${altChecker}</span>` : `<span>ALT</span><span class="text-[7px] opacity-70">${config.goldPerAlt}</span>`}</button>
+                    ${mainBtnHtml}
+                    ${altBtnHtml}
                     ${deleteBtnHtml}
                 </div>`;
                 list.appendChild(card);
@@ -644,9 +661,10 @@
         onSnapshot(settingsRef, (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
+                // ✅ ใช้ != null เพื่อให้ค่า 0 ยังคงเป็น 0 (ไม่ fallback)
                 config = {
-                    goldPerMember: Number(data.goldPerMember) || 150,
-                    goldPerAlt: Number(data.goldPerAlt) || 75,
+                    goldPerMember: data.goldPerMember != null ? Number(data.goldPerMember) : 150,
+                    goldPerAlt: data.goldPerAlt != null ? Number(data.goldPerAlt) : 75,
                     announceSuffix: data.announceSuffix || DEFAULT_SUFFIX
                 };
             }
